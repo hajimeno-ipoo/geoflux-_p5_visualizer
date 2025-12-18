@@ -10,6 +10,55 @@ type P5WithSound = p5 & {
   getAudioContext: () => AudioContext;
 };
 
+const TWO_PI = Math.PI * 2;
+const LUT_SIZE = 1440; // 0.25 degree resolution
+const SIN_LUT = new Float32Array(LUT_SIZE);
+const COS_LUT = new Float32Array(LUT_SIZE);
+for (let i = 0; i < LUT_SIZE; i++) {
+  const rad = (i / LUT_SIZE) * TWO_PI;
+  SIN_LUT[i] = Math.sin(rad);
+  COS_LUT[i] = Math.cos(rad);
+}
+
+const fastSin = (rad: number) => {
+  let idx = Math.floor(((rad % TWO_PI + TWO_PI) % TWO_PI) / TWO_PI * LUT_SIZE);
+  return SIN_LUT[idx];
+};
+const fastCos = (rad: number) => {
+  let idx = Math.floor(((rad % TWO_PI + TWO_PI) % TWO_PI) / TWO_PI * LUT_SIZE);
+  return COS_LUT[idx];
+};
+
+class SpatialHash {
+  private grid: Map<string, any[]>;
+  private cellSize: number;
+  constructor(cellSize: number) {
+    this.grid = new Map();
+    this.cellSize = cellSize;
+  }
+  clear() {
+    this.grid.clear();
+  }
+  add(x: number, y: number, data: any) {
+    const key = `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`;
+    if (!this.grid.has(key)) this.grid.set(key, []);
+    this.grid.get(key)!.push({ x, y, data });
+  }
+  getNearby(x: number, y: number) {
+    const cx = Math.floor(x / this.cellSize);
+    const cy = Math.floor(y / this.cellSize);
+    const results: any[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const key = `${cx + dx},${cy + dy}`;
+        const items = this.grid.get(key);
+        if (items) results.push(...items);
+      }
+    }
+    return results;
+  }
+}
+
 export const createSketch = (
   paramsRef: React.MutableRefObject<AppParams>,
   audioFileRef: React.MutableRefObject<File | null>,
@@ -31,7 +80,7 @@ export const createSketch = (
 
     // 描画予算管理
     let linesDrawn = 0;
-    const LINE_BUDGET = 4000; // 1フレームあたりの最大描画ライン数
+    const LINE_BUDGET = 12000; // 最適化により上限を引き上げ
 
     const MAX_POINTS = 2000;
     const moireX = new Float32Array(MAX_POINTS);
@@ -59,13 +108,17 @@ export const createSketch = (
       uniform float u_bass;
       uniform float u_mid;
       uniform float u_treble;
+      uniform int u_mode;
+      uniform float u_paramA;
+      uniform float u_paramB;
+      uniform float u_paramC;
+      uniform vec3 u_palette_a;
+      uniform vec3 u_palette_b;
+      uniform vec3 u_palette_c;
+      uniform vec3 u_palette_d;
 
       vec3 palette(float t) {
-          vec3 a = vec3(0.5, 0.5, 0.5);
-          vec3 b = vec3(0.5, 0.5, 0.5);
-          vec3 c = vec3(1.0, 1.0, 1.0);
-          vec3 d = vec3(0.263, 0.416, 0.557);
-          return a + b * cos(6.28318 * (c * t + d + u_mid * 0.2));
+          return u_palette_a + u_palette_b * cos(6.28318 * (u_palette_c * t + u_palette_d + u_mid * 0.1));
       }
 
       void main() {
@@ -74,18 +127,44 @@ export const createSketch = (
           uv.x *= aspect;
           uv.y *= -1.0;
           uv *= u_scale * (1.0 - u_bass * 0.1);
-          vec2 uv0 = uv;
+
           vec3 finalColor = vec3(0.0);
-          for (float i = 0.0; i < 4.0; i++) {
-              uv = fract(uv * 1.5) - 0.5;
-              float d = length(uv) * exp(-length(uv0));
-              vec3 col = palette(length(uv0) + i * 0.4 + u_time * 0.4);
-              d = sin(d * 8.0 + u_time) / 8.0;
-              d = abs(d);
-              float shine = 1.2 + u_treble * 2.0;
-              d = pow(0.01 / d, shine);
-              finalColor += col * d;
+
+          if (u_mode == 1) {
+              // Moire interference - Reactive to circles/points/dist
+              vec2 p = uv * (1.0 + u_audio * 0.2);
+              float freq = u_paramC * 0.1; // mapping dist to frequency
+              float d1 = length(p + vec2(sin(u_time * 0.5), cos(u_time * 0.3)) * 0.2);
+              float d2 = length(p - vec2(cos(u_time * 0.4), sin(u_time * 0.6)) * 0.2);
+              float f1 = sin(d1 * freq + u_time);
+              float f2 = sin(d2 * freq - u_time * 1.1);
+              float interaction = abs(f1 - f2);
+              float density = u_paramA * u_paramB * 0.05;
+              finalColor = palette(interaction + u_time * 0.1) * pow(interaction, 2.0) * density;
+          } else if (u_mode == 2) {
+              // Spiral mode - Reactive to spiralStrength/layers
+              float angle = atan(uv.y, uv.x) + u_time * 0.2;
+              float dist = length(uv);
+              float strength = u_paramA * 50.0;
+              float layers = u_paramB;
+              float s = sin(dist * strength - angle * layers + u_time);
+              finalColor = palette(dist + s * 0.5 + u_time * 0.2) * (1.0 - abs(s));
+              finalColor *= exp(-dist * 0.5);
+          } else {
+              // Default generative
+              vec2 uv0 = uv;
+              for (float i = 0.0; i < 4.0; i++) {
+                  uv = fract(uv * 1.5) - 0.5;
+                  float d = length(uv) * exp(-length(uv0));
+                  vec3 col = palette(length(uv0) + i * 0.4 + u_time * 0.4);
+                  d = sin(d * 8.0 + u_time) / 8.0;
+                  d = abs(d);
+                  float shine = 1.2 + u_treble * 2.0;
+                  d = pow(0.01 / d, shine);
+                  finalColor += col * d;
+              }
           }
+
           finalColor *= (1.0 + u_audio * 0.5 + u_bass * 0.3);
           gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -147,6 +226,9 @@ export const createSketch = (
       pgShader = p.createGraphics(w, h, p.WEBGL);
       pgShader.pixelDensity(1);
       theShader = pgShader.createShader(vertSrc, fragSrc);
+
+      (p as any).spatialHash = new SpatialHash(100);
+
       const GlobalP5 = (window as any).p5;
       try {
         if (p5s.Amplitude) amplitude = new p5s.Amplitude();
@@ -191,15 +273,53 @@ export const createSketch = (
         const currentTrail = isCustom ? params.customTrailAlpha : params.trailAlpha;
         const currentPalette = isCustom ? params.customPalette : params.palette;
 
-        if (params.mode === 'shader' && pgShader && theShader) {
+        const isMoireSpiral = params.mode === 'moire' || params.mode === 'spiral';
+        const useGPU = (params.mode === 'shader') || (params.gpuAccelerated && isMoireSpiral);
+
+        if (useGPU && pgShader && theShader) {
           pgShader.shader(theShader);
           theShader.setUniform('u_resolution', [p.width, p.height]);
-          theShader.setUniform('u_time', f * params.shaderSpeed);
-          theShader.setUniform('u_scale', params.shaderScale / zoom);
+          theShader.setUniform('u_time', f * (params.mode === 'shader' ? params.shaderSpeed : params.speed * 100));
+          theShader.setUniform('u_scale', (params.mode === 'shader' ? params.shaderScale : 1.0) / zoom);
           theShader.setUniform('u_audio', audioLevel);
           theShader.setUniform('u_bass', audioBass);
           theShader.setUniform('u_mid', audioMid);
           theShader.setUniform('u_treble', audioTreble);
+
+          let shaderModeVal = 0;
+          let pA = 0, pB = 0, pC = 0;
+          if (params.mode === 'moire') {
+            shaderModeVal = 1;
+            pA = params.circles;
+            pB = params.points;
+            pC = params.dist;
+          } else if (params.mode === 'spiral') {
+            shaderModeVal = 2;
+            pA = params.spiralStrength;
+            pB = params.layers;
+          }
+          theShader.setUniform('u_mode', shaderModeVal);
+          theShader.setUniform('u_paramA', pA);
+          theShader.setUniform('u_paramB', pB);
+          theShader.setUniform('u_paramC', pC);
+
+          const getPaletteCoeffs = (pal: string) => {
+            switch (pal) {
+              case 'cyberpunk': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.6, 0.7, 0.8] };
+              case 'monochrome': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.0, 0.0] };
+              case 'pastel': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.3, 0.2, 0.2] };
+              case 'warm': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.1, 0.2] };
+              case 'cool': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.5, 0.6, 0.7] };
+              case 'golden': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.1, 0.2, 0.3] };
+              default: return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.33, 0.67] };
+            }
+          };
+          const coeffs = getPaletteCoeffs(currentPalette);
+          theShader.setUniform('u_palette_a', coeffs.a);
+          theShader.setUniform('u_palette_b', coeffs.b);
+          theShader.setUniform('u_palette_c', coeffs.c);
+          theShader.setUniform('u_palette_d', coeffs.d);
+
           pgShader.resetMatrix();
           // @ts-ignore
           pgShader.beginShape(p.TRIANGLE_STRIP);
@@ -310,15 +430,15 @@ export const createSketch = (
 
           for (let i = 0; i <= totalPoints; i += pointStep) {
             const t = (i / totalPoints) * p.TAU * (res / 4);
-            const fb = p.sin(t * (params.customFeedback + driftX) + f * 2.0) * (params.customMod + driftMod) * (1 + modReact);
+            const fb = fastSin(t * (params.customFeedback + driftX) + f * 2.0) * (params.customMod + driftMod) * (1 + modReact);
             const angX = t * (params.customFreqX + freqReact) + fb + f;
             const angY = t * params.customFreqY + fb;
-            const r = scale * (1 + 0.1 * p.sin(t * 3 + f));
+            const r = scale * (1 + 0.1 * fastSin(t * 3 + f));
 
-            const lx = p.sin(angX) * r;
-            const ly = p.cos(angY) * r;
-            const gx = lx * p.cos(layerRot) - ly * p.sin(layerRot);
-            const gy = lx * p.sin(layerRot) + ly * p.cos(layerRot);
+            const lx = fastSin(angX) * r;
+            const ly = fastCos(angY) * r;
+            const gx = lx * fastCos(layerRot) - ly * fastSin(layerRot);
+            const gy = lx * fastSin(layerRot) + ly * fastCos(layerRot);
 
             if (connectDist > 0) layerPoints.push({ x: gx, y: gy });
 
@@ -342,22 +462,34 @@ export const createSketch = (
           }
           if (params.customStyle === 'curve' || params.customStyle === 'glow') pg.endShape();
 
+          const hash: SpatialHash = (p as any).spatialHash;
           if (connectDist > 0 && linesDrawn < LINE_BUDGET) {
+            hash.clear();
+            const cellSize = connectDist;
+            // @ts-ignore
+            hash.cellSize = cellSize;
+
+            layerPoints.forEach((pt, i) => hash.add(pt.x, pt.y, i));
+
             const threshSq = connectDist * connectDist * (1 + audioMid * 0.3);
-            const meshComplexity = sym * layers * (layerPoints.length * layerPoints.length);
-            const skip = Math.max(1, Math.floor(meshComplexity / 100000));
+            const skip = 1;
 
             for (let i = 0; i < layerPoints.length; i += skip) {
               if (linesDrawn >= LINE_BUDGET) break;
-              for (let j = i + skip; j < layerPoints.length; j += skip * 2) {
+              const p1 = layerPoints[i];
+              const nearby = hash.getNearby(p1.x, p1.y);
+
+              for (const other of nearby) {
+                const j = other.data;
+                if (j <= i) continue;
                 if (linesDrawn >= LINE_BUDGET) break;
-                const p1 = layerPoints[i]; const p2 = layerPoints[j];
-                const dx = p1.x - p2.x; const dy = p1.y - p2.y;
-                if (Math.abs(dx) > connectDist || Math.abs(dy) > connectDist) continue;
-                if ((dx * dx + dy * dy) < threshSq) {
+
+                const dx = p1.x - other.x;
+                const dy = p1.y - other.y;
+                if (dx * dx + dy * dy < threshSq) {
                   const val = f * params.customHueSpeed + i * 5 + l * 30;
                   setStrokeColor(p, val, palette, params, null, params.customAlpha * 0.3);
-                  pg.line(p1.x, p1.y, p2.x, p2.y);
+                  pg.line(p1.x, p1.y, other.x, other.y);
                   linesDrawn++;
                 }
               }
@@ -383,27 +515,40 @@ export const createSketch = (
           if (idx >= MAX_POINTS) break;
           let I = i + f * d * (1 + j / 100);
           let radius = j * (1 + audioBass * 0.15);
-          moireX[idx] = p.sin(I) * radius; moireY[idx] = p.cos(I) * radius;
+          moireX[idx] = fastSin(I) * radius; moireY[idx] = fastCos(I) * radius;
           setStrokeColor(p, f * params.hueSpeed + i * 10 + j, palette, params);
-          pg.strokeWeight((1 + p.sin(f * 10 + i) / 3) * (1 + audioLevel * 1.5 + audioTreble * 2.0));
+          pg.strokeWeight((1 + fastSin(f * 10 + i) / 3) * (1 + audioLevel * 1.5 + audioTreble * 2.0));
           idx++;
         }
         j += stepSize; d = -d;
       }
 
+      const hash: SpatialHash = (p as any).spatialHash;
       const baseDist = params.dist * (minDim / 600);
+      const cellSize = baseDist;
+      // @ts-ignore
+      hash.cellSize = cellSize;
+      hash.clear();
+
+      for (let i = 0; i < idx; i++) {
+        hash.add(moireX[i], moireY[i], i);
+      }
+
       const threshSq = baseDist * baseDist * (1 + audioMid * 0.2) * (1 + audioMid * 0.2);
-      const moireComplexity = idx * idx;
-      const skip = Math.max(1, Math.floor(moireComplexity / 100000));
+      const skip = 1;
 
       for (let i = 0; i < idx; i += skip) {
         if (linesDrawn >= LINE_BUDGET) break;
         let px = moireX[i]; let py = moireY[i];
-        for (let k = i + 1; k < idx; k += skip) {
+        const nearby = hash.getNearby(px, py);
+
+        for (const other of nearby) {
+          const k = other.data;
+          if (k <= i) continue;
           if (linesDrawn >= LINE_BUDGET) break;
+
           let qx = moireX[k]; let qy = moireY[k];
           let dx = px - qx; let dy = py - qy;
-          if (Math.abs(dx) > baseDist || Math.abs(dy) > baseDist) continue;
           if (dx * dx + dy * dy < threshSq) {
             pg.line(px, py, qx, qy);
             linesDrawn++;
@@ -419,31 +564,44 @@ export const createSketch = (
       const stepR = minDim * 0.03; const layerR = minDim * 0.06;
       for (let l = 0; l < params.layers; l++) {
         if (linesDrawn >= LINE_BUDGET) break;
+        pg.beginShape();
+        pg.noFill();
         for (let i = 0; i < TAU * 5; i += 0.12) {
           let r = (i * stepR + l * layerR) * (1 + audioBass * 0.25);
           let ang = i * (3 + params.spiralStrength * 10) + f * (l % 2 ? -1 : 1) + audioMid * 0.15;
-          let x = p.cos(ang) * r; let y = p.sin(ang) * r;
-          setStrokeColor(p, f * params.hueSpeed + i * 15 + l * 30, palette, params);
-          pg.point(x, y);
-          if (prevX !== undefined) {
-            pg.line(prevX, prevY, x, y);
-            linesDrawn++;
+          let x = fastCos(ang) * r; let y = fastSin(ang) * r;
+          if (i === 0) {
+            setStrokeColor(p, f * params.hueSpeed + l * 30, palette, params);
           }
-          prevX = x; prevY = y;
+          pg.vertex(x, y);
+          linesDrawn++;
         }
-        prevX = prevY = undefined;
+        pg.endShape();
       }
     }
 
     function drawGrid(p: p5, params: AppParams, minDim: number, palette: string) {
-      let density = params.gridDensity / (1 + audioBass * 0.3);
+      let density = Math.max(2, params.gridDensity / (1 + audioBass * 0.3));
       let step = p.width / density;
       pg.strokeWeight(1.5 + audioTreble * 4.0);
+
+      const drawFullGrid = () => {
+        pg.beginShape(p.LINES);
+        for (let i = -p.width; i <= p.width; i += step) {
+          pg.vertex(i, -p.height); pg.vertex(i, p.height);
+          pg.vertex(-p.width, i); pg.vertex(p.width, i);
+          linesDrawn += 2;
+        }
+        pg.endShape();
+      };
+
       setStrokeColor(p, f * params.hueSpeed, palette, params);
-      for (let i = -p.width; i <= p.width; i += step) { pg.line(i, -p.height, i, p.height); pg.line(-p.width, i, p.width, i); linesDrawn += 2; }
-      pg.push(); pg.rotate(params.rotDiff + f * 0.01 + audioMid * 0.2);
-      setStrokeColor(p, f * params.hueSpeed + 120, palette, params);
-      for (let i = -p.width; i <= p.width; i += step) { pg.line(i, -p.height, i, p.height); pg.line(-p.width, i, p.width, i); linesDrawn += 2; }
+      drawFullGrid();
+
+      pg.push();
+      pg.rotate(params.rotDiff + f * 0.01 + audioMid * 0.2);
+      setStrokeColor(p, f * params.hueSpeed + 120, palette, params, null, params.alpha * 0.7);
+      drawFullGrid();
       pg.pop();
     }
 
@@ -453,26 +611,37 @@ export const createSketch = (
       for (let i = 0; i < count; i++) {
         let ang = p.random(p.TAU) + f * p.random([-1, 1]);
         let r = p.random(safeRadius);
-        randomX[i] = p.cos(ang) * r; randomY[i] = p.sin(ang) * r;
+        randomX[i] = fastCos(ang) * r; randomY[i] = fastSin(ang) * r;
       }
       pg.strokeWeight(1 + audioTreble * 4.0);
 
+      const hash: SpatialHash = (p as any).spatialHash;
       const maxDist = 150 * (minDim / 600) * (1 + audioMid * 0.3);
-      const threshSq = maxDist * maxDist;
-      const skip = Math.max(1, Math.floor((count * count) / 100000));
+      // @ts-ignore
+      hash.cellSize = maxDist;
+      hash.clear();
+      for (let i = 0; i < count; i++) {
+        hash.add(randomX[i], randomY[i], i);
+      }
 
-      for (let i = 0; i < count; i += skip) {
+      const threshSq = maxDist * maxDist;
+      for (let i = 0; i < count; i++) {
         if (linesDrawn >= LINE_BUDGET) break;
-        for (let j = i + 1; j < count; j += skip) {
+        const px = randomX[i]; const py = randomY[i];
+        const nearby = hash.getNearby(px, py);
+
+        for (const other of nearby) {
+          const j = other.data;
+          if (j <= i) continue;
           if (linesDrawn >= LINE_BUDGET) break;
-          let dx = randomX[i] - randomX[j]; let dy = randomY[i] - randomY[j];
-          if (Math.abs(dx) > maxDist || Math.abs(dy) > maxDist) continue;
+
+          let dx = px - other.x; let dy = py - other.y;
           let distSq = dx * dx + dy * dy;
           if (distSq < threshSq) {
             let d = Math.sqrt(distSq);
             const [h, s, b] = getColorValues(p, i + f * params.hueSpeed, palette);
             pg.stroke(h, s, b, p.map(d, 0, maxDist, params.alpha, 0));
-            pg.line(randomX[i], randomY[i], randomX[j], randomY[j]);
+            pg.line(px, py, other.x, other.y);
             linesDrawn++;
           }
         }
@@ -485,19 +654,17 @@ export const createSketch = (
       for (let petal = 0; petal < params.petals; petal++) {
         if (linesDrawn >= LINE_BUDGET) break;
         let offset = petal * p.TAU / params.petals;
-        let prevX: number | undefined, prevY: number | undefined;
+        pg.beginShape();
+        pg.noFill();
         for (let i = 0; i < p.TAU; i += 0.05) {
-          let r = (baseR + p.sin(i * params.petals / 2) * varR) * (1 + audioBass * 0.3);
+          let r = (baseR + fastSin(i * params.petals / 2) * varR) * (1 + audioBass * 0.3);
           let ang = i * params.flowerSpeed + f + offset + audioMid * 0.1;
-          setStrokeColor(p, f * params.hueSpeed + petal * 30 + i * 20, palette, params);
-          let cx = p.cos(ang) * r; let cy = p.sin(ang) * r;
-          pg.point(cx, cy);
-          if (prevX !== undefined) {
-            pg.line(prevX, prevY, cx, cy);
-            linesDrawn++;
-          }
-          prevX = cx; prevY = cy;
+          if (i === 0) setStrokeColor(p, f * params.hueSpeed + petal * 30, palette, params);
+          let cx = fastCos(ang) * r; let cy = fastSin(ang) * r;
+          pg.vertex(cx, cy);
+          linesDrawn++;
         }
+        pg.endShape();
       }
     }
 
@@ -505,18 +672,17 @@ export const createSketch = (
       pg.strokeWeight(2 + audioTreble * 3);
       for (let w = 0; w < params.waves; w++) {
         if (linesDrawn >= LINE_BUDGET) break;
-        let offset = w * 20; let prevY: number | undefined;
+        let offset = w * 20;
+        pg.beginShape();
+        pg.noFill();
         for (let x = -p.width / 2; x < p.width / 2; x += 8) {
-          let y = p.sin(x * 0.02 + f + offset) * params.amp * (1 + audioMid * 0.4) + p.cos(x * 0.01) * 30;
+          let y = fastSin(x * 0.02 + f + offset) * params.amp * (1 + audioMid * 0.4) + fastCos(x * 0.01) * 30;
           y = p.constrain(y, -p.height / 2 + 10, p.height / 2 - 10);
-          setStrokeColor(p, f * params.hueSpeed + w * 20 + (x + p.width / 2) * 0.1, palette, params);
-          pg.point(x, y);
-          if (prevY !== undefined) {
-            pg.line(x - 8, prevY, x, y);
-            linesDrawn++;
-          }
-          prevY = y;
+          if (x === -p.width / 2) setStrokeColor(p, f * params.hueSpeed + w * 20, palette, params);
+          pg.vertex(x, y);
+          linesDrawn++;
         }
+        pg.endShape();
       }
     }
 

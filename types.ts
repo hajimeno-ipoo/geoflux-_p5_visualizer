@@ -18,7 +18,7 @@ export interface AppParams {
   flowerSpeed: number;
   waves: number;
   amp: number;
-  
+
   // Custom Mode Parameters
   customCount: number;
   customFreqX: number;
@@ -33,7 +33,7 @@ export interface AppParams {
   customAlpha: number;
   customTrailAlpha: number;
   customPalette: 'rainbow' | 'cyberpunk' | 'monochrome' | 'pastel' | 'warm' | 'cool' | 'golden';
-  
+
   // Pro専用設定 (連動回避用)
   customPpMirror: boolean;
   customPpInvert: boolean;
@@ -43,7 +43,7 @@ export interface AppParams {
   customAudioSensMid: number;
   customAudioSensTreble: number;
   customAudioVol: number;
-  
+
   // --- NEW PRO ENHANCEMENTS ---
   customSymmetry: number;
   customStyle: 'line' | 'curve' | 'point' | 'glow';
@@ -62,6 +62,7 @@ export interface AppParams {
   ppMirror: boolean;
   ppInvert: boolean;
   ppGlitch: boolean;
+  gpuAccelerated: boolean;
 }
 
 export const defaultParams: AppParams = {
@@ -83,7 +84,7 @@ export const defaultParams: AppParams = {
   flowerSpeed: 3,
   waves: 10,
   amp: 100,
-  
+
   // Custom Defaults
   customCount: 600,
   customFreqX: 3,
@@ -98,7 +99,7 @@ export const defaultParams: AppParams = {
   customAlpha: 60,
   customTrailAlpha: 20,
   customPalette: 'cyberpunk',
-  
+
   // Pro専用初期値
   customPpMirror: false,
   customPpInvert: false,
@@ -108,7 +109,7 @@ export const defaultParams: AppParams = {
   customAudioSensMid: 1.0,
   customAudioSensTreble: 1.0,
   customAudioVol: 0.8,
-  
+
   // NEW PRO DEFAULTS
   customSymmetry: 1,
   customStyle: 'line',
@@ -125,7 +126,8 @@ export const defaultParams: AppParams = {
   shaderScale: 1.0,
   ppMirror: false,
   ppInvert: false,
-  ppGlitch: false
+  ppGlitch: false,
+  gpuAccelerated: false
 };
 
 export interface Preset extends Partial<AppParams> {
