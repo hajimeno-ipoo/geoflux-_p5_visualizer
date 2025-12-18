@@ -207,6 +207,7 @@ const App: React.FC = () => {
     const sketch = createSketch(paramsRef, audioFileRef, zoomRef);
     const p5Obj = new p5(sketch, containerRef.current);
     p5Instance.current = p5Obj;
+    (p5Obj as any).onAudioPlayStateChange = (playing: boolean) => { setIsAudioPlaying(playing); };
 
     // FPSの更新ループを追加
     const fpsInterval = setInterval(() => {
@@ -220,6 +221,7 @@ const App: React.FC = () => {
       (p5Obj as any).customResize?.(clientWidth, clientHeight);
     }
     return () => {
+      (p5Obj as any).onAudioPlayStateChange = null;
       p5Obj.remove();
       p5Instance.current = null;
       clearInterval(fpsInterval);
@@ -324,8 +326,13 @@ const App: React.FC = () => {
   const handleAudioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && p5Instance.current) {
-      audioFileRef.current = file; (p5Instance.current as any).updateAudioFile(file);
-      setHasAudio(true); setIsAudioPlaying(false); displayToast('音楽ファイルを読み込みました');
+      audioFileRef.current = file;
+      const ok = (p5Instance.current as any).updateAudioFile(file);
+      if (ok === false) {
+        setHasAudio(false); setIsAudioPlaying(false); displayToast('この環境だと音声が使えないみたい…');
+        return;
+      }
+      setHasAudio(true); setIsAudioPlaying(false); displayToast('音楽ファイルを読み込み中…');
     }
   };
 
@@ -823,6 +830,7 @@ ${ppPost}
           <select value={currentPresetIdx} onChange={handlePresetChange}>
             <option value="">-- 選択してください --</option>{presets.map((p, i) => (<option key={i} value={i}>{p.name}</option>))}
           </select>
+          <button onClick={generateRandomParams} className="btn-primary" style={{ marginTop: '12px' }}>🎲 ランダム生成</button>
           <div className="section-divider">
             <label className="section-title">💾 エクスポートとアクション</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

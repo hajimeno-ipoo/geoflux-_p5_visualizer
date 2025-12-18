@@ -64,3 +64,25 @@ test('コードコピー欄が横にはみ出さないCSSがある', async () =>
   const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
   assert.match(css, /\.textarea-code\s*\{[\s\S]*?box-sizing:\s*border-box;/);
 });
+
+test('通常モードにランダム生成ボタンがある', async () => {
+  const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
+  assert.ok(appTsx.includes('<button onClick={generateRandomParams}'), '通常モードの「ランダム生成」ボタンが見つからないよ');
+});
+
+test('p5.soundを読み込まない（AudioWorklet回避）', async () => {
+  const html = await readFile(path.join(projectRoot, 'index.html'), 'utf8');
+  assert.ok(!html.includes('p5.sound.min.js'), 'index.html に p5.sound の読み込みが残ってるよ');
+});
+
+test('audioFileRefがsketch内で使われている', async () => {
+  const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
+  assert.ok(sketchTs.includes('audioFileRef.current'), 'sketch.ts で audioFileRef を参照してないよ');
+});
+
+test('再生状態がsketchからAppへ通知される', async () => {
+  const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
+  const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
+  assert.ok(appTsx.includes('onAudioPlayStateChange'), 'App.tsx に onAudioPlayStateChange の受け口が無いよ');
+  assert.ok(sketchTs.includes('onAudioPlayStateChange'), 'sketch.ts から onAudioPlayStateChange を呼んでないよ');
+});
