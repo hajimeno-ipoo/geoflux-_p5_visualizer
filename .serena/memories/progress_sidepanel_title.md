@@ -73,3 +73,14 @@
 
 ## 実行確認（追記）
 - `npm test` OK
+
+
+## 追記: プレビュー背景を深いネイビーに
+
+- プレビュー背景を黒→深いネイビー寄りの“ほぼ黒”へ変更
+  - p5側: `sketch.ts` の `background(0)` を `#050816` に統一、残像フェードも `rgba(5, 8, 22, alpha)` へ
+  - CSS側: `.canvas-container` の背景を `#050816` に変更
+
+## 実行確認（追記）
+- `npm test` OK
+- `npm run build` OK

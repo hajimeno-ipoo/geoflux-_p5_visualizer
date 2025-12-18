@@ -66,6 +66,8 @@ export const createSketch = (
 ) => {
   return (p: p5) => {
     const p5s = p as P5WithSound;
+    const PREVIEW_BG = '#050816';
+    const PREVIEW_BG_RGB = '5, 8, 22';
     let f = 0;
     let song: any = null;
     let amplitude: any;
@@ -209,9 +211,9 @@ export const createSketch = (
     };
 
     (p as any).clearCanvas = () => {
-      p.background(0);
-      if (pg) { pg.background(0); }
-      if (pgShader) { pgShader.clear(); pgShader.background(0); }
+      p.background(PREVIEW_BG);
+      if (pg) { pg.background(PREVIEW_BG); }
+      if (pgShader) { pgShader.clear(); pgShader.background(PREVIEW_BG); }
     };
 
     p.setup = () => {
@@ -243,7 +245,7 @@ export const createSketch = (
     (p as any).customResize = (w: number, h: number) => {
       if (w <= 0 || h <= 0) return;
       p.resizeCanvas(w, h);
-      if (pg) { pg.resizeCanvas(w, h); pg.background(0); }
+      if (pg) { pg.resizeCanvas(w, h); pg.background(PREVIEW_BG); }
       if (pgShader) pgShader.resizeCanvas(w, h);
     };
 
@@ -331,7 +333,7 @@ export const createSketch = (
           }
         } else if (pg) {
           pg.noStroke();
-          pg.fill(0, 0, 0, currentTrail);
+          pg.fill(`rgba(${PREVIEW_BG_RGB}, ${currentTrail / 100})`);
           pg.rect(0, 0, p.width, p.height);
           pg.push();
           pg.translate(p.width / 2, p.height / 2);
@@ -687,7 +689,7 @@ export const createSketch = (
     }
 
     function drawPostProcess(p: p5, params: AppParams) {
-      p.background(0);
+      p.background(PREVIEW_BG);
       const isCustom = params.mode === 'custom';
       const isPpMirror = isCustom ? params.customPpMirror : params.ppMirror;
       const isPpInvert = isCustom ? params.customPpInvert : params.ppInvert;
