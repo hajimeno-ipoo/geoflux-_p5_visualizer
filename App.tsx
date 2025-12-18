@@ -627,30 +627,30 @@ ${ppPost}
           <div className="zoom-slider-wrapper">
             <input type="range" min="0.1" max="5.0" step="0.1" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="vertical-slider" title="プレビュー拡大/縮小" />
           </div>
-          <button onClick={() => setZoom(1.0)} style={{ padding: '2px 5px', fontSize: '0.7em', background: '#444', marginTop: '5px', width: 'auto' }}>リセット</button>
+          <button onClick={() => setZoom(1.0)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75em' }}>リセット</button>
         </div>
-        <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.5)', color: '#0f0', padding: '2px 6px', fontSize: '0.7em', borderRadius: '4px', pointerEvents: 'none', border: '1px solid #0f0', display: 'flex', gap: '8px', zIndex: 60 }}>
+        <div className="fps-indicator">
           <span>FPS: {fps}</span>
-          {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: '#00f2ff' }}>⚡ GPU</span> : null}
+          {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: 'var(--accent-blue)', marginLeft: '8px' }}>⚡ GPU</span> : null}
         </div>
       </div>
 
       {showProPanel ? (
-        <div className="pro-panel">
-          <button onClick={handleProReset} style={{ background: '#444', color: '#ff0', marginBottom: '10px', fontSize: '0.85em' }}>🔄 オールリセット</button>
-          <h2 className="pro-title">🛠 Pro Lab (Custom Mode)</h2>
+        <div className="panel-shared pro-panel">
+          <button onClick={handleProReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+          <h2 className="pro-title" style={{ color: 'var(--accent-pink)', fontSize: '1.2em', margin: '0 0 16px 0', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>🛠 Pro Mode Lab</h2>
 
           <div className="section-divider">
             <label className="section-title">📂 スナップショット (Snapshots)</label>
-            <div style={{ display: 'flex', gap: '5px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               {[0, 1, 2].map(i => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <button onClick={() => saveSnapshot(i)} style={{ fontSize: '0.7em', padding: '4px', background: '#444' }}>Save {i + 1}</button>
-                  <button onClick={() => loadSnapshot(i)} disabled={!snapshots[i]} style={{ fontSize: '0.7em', padding: '4px', background: '#222' }}>Load {i + 1}</button>
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button onClick={() => saveSnapshot(i)} style={{ fontSize: '0.75em', padding: '6px' }}>Save {i + 1}</button>
+                  <button onClick={() => loadSnapshot(i)} disabled={!snapshots[i]} style={{ fontSize: '0.75em', padding: '6px' }}>Load {i + 1}</button>
                 </div>
               ))}
             </div>
-            <button onClick={generateProRandomParams} style={{ marginTop: '10px', background: '#444', border: '1px solid #d2007d' }}>🎲 Proランダム生成</button>
+            <button onClick={generateProRandomParams} className="btn-primary" style={{ marginTop: '12px' }}>🎲 ランダム生成</button>
           </div>
 
           <AudioControls params={params} isPro={true} handleParamChange={handleParamChange} handleAudioFile={handleAudioFile} toggleAudio={toggleAudio} stopAudio={stopAudio} hasAudio={hasAudio} isAudioPlaying={isAudioPlaying} />
@@ -669,22 +669,44 @@ ${ppPost}
 
           <div className="section-divider">
             <label className="section-title">🧬 ジェネレータ (Base Shape)</label>
-            <label>長さ (Density): {params.customCount}</label>
-            <input type="range" min="200" max="2000" step="50" value={params.customCount} onChange={e => handleParamChange('customCount', parseInt(e.target.value))} />
-            <label>X周波数: {params.customFreqX}</label>
-            <input type="range" min="1" max="20" step="1" value={params.customFreqX} onChange={e => handleParamChange('customFreqX', parseInt(e.target.value))} />
-            <label>Y周波数: {params.customFreqY}</label>
-            <input type="range" min="1" max="20" step="1" value={params.customFreqY} onChange={e => handleParamChange('customFreqY', parseInt(e.target.value))} />
-            <label>変調 (Mod): {params.customMod.toFixed(1)}</label>
-            <input type="range" min="0" max="10" step="0.1" value={params.customMod} onChange={e => handleParamChange('customMod', parseFloat(e.target.value))} />
-            <label>ひねり (Feedback): {params.customFeedback.toFixed(1)}</label>
-            <input type="range" min="0" max="10" step="0.1" value={params.customFeedback} onChange={e => handleParamChange('customFeedback', parseFloat(e.target.value))} />
+            <label>長さ (Density)</label>
+            <div className="slider-group">
+              <input type="range" min="200" max="2000" step="50" value={params.customCount} onChange={e => handleParamChange('customCount', parseInt(e.target.value))} />
+              <input type="number" step="50" value={params.customCount} onChange={e => handleParamChange('customCount', parseInt(e.target.value))} />
+            </div>
+
+            <label>X周波数</label>
+            <div className="slider-group">
+              <input type="range" min="1" max="20" step="1" value={params.customFreqX} onChange={e => handleParamChange('customFreqX', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customFreqX} onChange={e => handleParamChange('customFreqX', parseInt(e.target.value))} />
+            </div>
+
+            <label>Y周波数</label>
+            <div className="slider-group">
+              <input type="range" min="1" max="20" step="1" value={params.customFreqY} onChange={e => handleParamChange('customFreqY', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customFreqY} onChange={e => handleParamChange('customFreqY', parseInt(e.target.value))} />
+            </div>
+
+            <label>変調 (Mod)</label>
+            <div className="slider-group">
+              <input type="range" min="0" max="10" step="0.1" value={params.customMod} onChange={e => handleParamChange('customMod', parseFloat(e.target.value))} />
+              <input type="number" step="0.1" value={params.customMod} onChange={e => handleParamChange('customMod', parseFloat(e.target.value))} />
+            </div>
+
+            <label>ひねり (Feedback)</label>
+            <div className="slider-group">
+              <input type="range" min="0" max="10" step="0.1" value={params.customFeedback} onChange={e => handleParamChange('customFeedback', parseFloat(e.target.value))} />
+              <input type="number" step="0.1" value={params.customFeedback} onChange={e => handleParamChange('customFeedback', parseFloat(e.target.value))} />
+            </div>
           </div>
 
           <div className="section-divider">
             <label className="section-title pink">❄ 対称性とスタイル (Symmetry & Style)</label>
-            <label>回転対称 (Symmetry): {params.customSymmetry}</label>
-            <input type="range" min="1" max="12" step="1" value={params.customSymmetry} onChange={e => handleParamChange('customSymmetry', parseInt(e.target.value))} />
+            <label>回転対称 (Symmetry)</label>
+            <div className="slider-group">
+              <input type="range" min="1" max="12" step="1" value={params.customSymmetry} onChange={e => handleParamChange('customSymmetry', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customSymmetry} onChange={e => handleParamChange('customSymmetry', parseInt(e.target.value))} />
+            </div>
 
             <label>描画スタイル</label>
             <select value={params.customStyle} onChange={e => handleParamChange('customStyle', e.target.value)}>
@@ -714,37 +736,66 @@ ${ppPost}
             <select value={params.customPalette} onChange={e => handleParamChange('customPalette', e.target.value)}>
               <option value="rainbow">🌈 Rainbow</option><option value="cyberpunk">🤖 Cyberpunk</option><option value="monochrome">🌑 Monochrome</option><option value="pastel">🌸 Pastel</option><option value="warm">🔥 Warm</option><option value="cool">💧 Cool</option><option value="golden">👑 Golden</option>
             </select>
-            <label>レイヤー: {params.customCircles}</label>
-            <input type="range" min="1" max="16" step="1" value={params.customCircles} onChange={e => handleParamChange('customCircles', parseInt(e.target.value))} />
-            <label>頂点解像度 (Complexity): {params.customPoints}</label>
-            <input type="range" min="4" max="80" step="1" value={params.customPoints} onChange={e => handleParamChange('customPoints', parseInt(e.target.value))} />
-            <label>メッシュ距離: {params.customDist}</label>
-            <input type="range" min="0" max="300" step="10" value={params.customDist} onChange={e => handleParamChange('customDist', parseInt(e.target.value))} />
-            <label>速度: {params.customSpeed.toFixed(3)}</label>
-            <input type="range" min="0" max="0.05" step="0.001" value={params.customSpeed} onChange={e => handleParamChange('customSpeed', parseFloat(e.target.value))} />
-            <label>透明度: {params.customAlpha}</label>
-            <input type="range" min="5" max="100" step="5" value={params.customAlpha} onChange={e => handleParamChange('customAlpha', parseFloat(e.target.value))} />
-            <label>残像: {params.customTrailAlpha}</label>
-            <input type="range" min="1" max="100" step="1" value={params.customTrailAlpha} onChange={e => handleParamChange('customTrailAlpha', parseInt(e.target.value))} />
-            {/* --- NEW PRO HUE SPEED CONTROL --- */}
-            <label>色変化速度: {params.customHueSpeed}</label>
-            <input type="range" min="0" max="200" step="5" value={params.customHueSpeed} onChange={e => handleParamChange('customHueSpeed', parseInt(e.target.value))} />
+
+            <label>レイヤー</label>
+            <div className="slider-group">
+              <input type="range" min="1" max="16" step="1" value={params.customCircles} onChange={e => handleParamChange('customCircles', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customCircles} onChange={e => handleParamChange('customCircles', parseInt(e.target.value))} />
+            </div>
+
+            <label>頂点解像度 (Complexity)</label>
+            <div className="slider-group">
+              <input type="range" min="4" max="80" step="1" value={params.customPoints} onChange={e => handleParamChange('customPoints', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customPoints} onChange={e => handleParamChange('customPoints', parseInt(e.target.value))} />
+            </div>
+
+            <label>メッシュ距離</label>
+            <div className="slider-group">
+              <input type="range" min="0" max="300" step="10" value={params.customDist} onChange={e => handleParamChange('customDist', parseInt(e.target.value))} />
+              <input type="number" step="10" value={params.customDist} onChange={e => handleParamChange('customDist', parseInt(e.target.value))} />
+            </div>
+
+            <label>速度</label>
+            <div className="slider-group">
+              <input type="range" min="0" max="0.05" step="0.001" value={params.customSpeed} onChange={e => handleParamChange('customSpeed', parseFloat(e.target.value))} />
+              <input type="number" step="0.001" value={params.customSpeed} onChange={e => handleParamChange('customSpeed', parseFloat(e.target.value))} />
+            </div>
+
+            <label>透明度</label>
+            <div className="slider-group">
+              <input type="range" min="5" max="100" step="5" value={params.customAlpha} onChange={e => handleParamChange('customAlpha', parseFloat(e.target.value))} />
+              <input type="number" step="5" value={params.customAlpha} onChange={e => handleParamChange('customAlpha', parseFloat(e.target.value))} />
+            </div>
+
+            <label>残像</label>
+            <div className="slider-group">
+              <input type="range" min="1" max="100" step="1" value={params.customTrailAlpha} onChange={e => handleParamChange('customTrailAlpha', parseInt(e.target.value))} />
+              <input type="number" step="1" value={params.customTrailAlpha} onChange={e => handleParamChange('customTrailAlpha', parseInt(e.target.value))} />
+            </div>
+
+            <label>色変化速度</label>
+            <div className="slider-group">
+              <input type="range" min="0" max="200" step="5" value={params.customHueSpeed} onChange={e => handleParamChange('customHueSpeed', parseInt(e.target.value))} />
+              <input type="number" step="5" value={params.customHueSpeed} onChange={e => handleParamChange('customHueSpeed', parseInt(e.target.value))} />
+            </div>
           </div>
 
           <div className="section-divider">
-            <label className="section-title">💾 アクション</label>
-            <button onClick={toggleFullscreen} style={{ background: '#663399' }}>⛶ 全画面表示</button>
-            <button onClick={saveImage} style={{ background: '#005588' }}>📷 高解像度画像保存</button>
-            <button onClick={() => copyCode('proCodeOutput')} style={{ background: '#007744' }}>📋 スクリプトをコピー</button>
-            <textarea id="proCodeOutput" readOnly value={generateOneLiner()} style={{ height: '200px' }} />
+            <label className="section-title">💾 エクスポートとアクション</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button onClick={toggleFullscreen}>⛶ 全画面</button>
+              <button onClick={saveImage}>📷 画像保存</button>
+            </div>
+            <button onClick={() => copyCode('proCodeOutput')} className="btn-primary">📋 スクリプトをコピー</button>
+            <textarea id="proCodeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
           </div>
 
-          <button onClick={toggleProPanel} style={{ marginTop: '20px', background: '#d2007d' }}>通常モードに戻る</button>
+          <button onClick={toggleProPanel} className="btn-danger" style={{ marginTop: '24px' }}>通常モードに戻る</button>
         </div>
       ) : (
-        <div className="controls">
-          <button onClick={handleNormalReset} style={{ background: '#444', color: '#ff0', marginBottom: '10px', fontSize: '0.85em' }}>🔄 オールリセット</button>
-          <button onClick={toggleProPanel} style={{ background: '#222', border: '1px solid #d2007d', color: '#d2007d', marginBottom: '15px' }}>🛠 Proモード (カスタムラボ) ON</button>
+        <div className="panel-shared controls">
+          <button onClick={handleNormalReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+          <button onClick={toggleProPanel} className="btn-primary" style={{ marginBottom: '16px' }}>🛠 Proモードを起動</button>
           <div className="preset-name">{modeName}</div>
           <label>パターンモード</label>
           <select value={params.mode} onChange={e => handleParamChange('mode', e.target.value)} disabled={showProPanel}>
@@ -769,11 +820,15 @@ ${ppPost}
           <select value={currentPresetIdx} onChange={handlePresetChange}>
             <option value="">-- 選択してください --</option>{presets.map((p, i) => (<option key={i} value={i}>{p.name}</option>))}
           </select>
-          <button onClick={generateRandomParams} style={{ marginTop: '10px', background: '#444' }}>🎲 完全にランダム生成</button>
-          <button onClick={toggleFullscreen} style={{ background: '#663399' }}>⛶ 全画面表示</button>
-          <button onClick={saveImage} style={{ background: '#005588' }}>📷 画像保存</button>
-          <button onClick={() => copyCode('codeOutput')} style={{ background: '#007744' }}>📋 スクリプトをコピー</button>
-          <textarea id="codeOutput" readOnly value={generateOneLiner()} style={{ height: '180px' }} />
+          <div className="section-divider">
+            <label className="section-title">💾 エクスポートとアクション</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <button onClick={toggleFullscreen}>⛶ 全画面</button>
+              <button onClick={saveImage}>📷 画像保存</button>
+            </div>
+            <button onClick={() => copyCode('codeOutput')} className="btn-primary">📋 スクリプトをコピー</button>
+            <textarea id="codeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
+          </div>
         </div>
       )}
       <div className={`toast ${showToast ? 'show' : ''}`}>{toastMsg}</div>
