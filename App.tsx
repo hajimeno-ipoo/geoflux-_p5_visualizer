@@ -628,10 +628,10 @@ ${ppPost}
             <input type="range" min="0.1" max="5.0" step="0.1" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="vertical-slider" title="プレビュー拡大/縮小" />
           </div>
           <button onClick={() => setZoom(1.0)} style={{ padding: '2px 5px', fontSize: '0.7em', background: '#444', marginTop: '5px', width: 'auto' }}>リセット</button>
-          <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.5)', color: '#0f0', padding: '2px 6px', fontSize: '0.7em', borderRadius: '4px', pointerEvents: 'none', border: '1px solid #0f0', display: 'flex', gap: '8px' }}>
-            <span>FPS: {fps}</span>
-            {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: '#00f2ff' }}>⚡ GPU</span> : null}
-          </div>
+        </div>
+        <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.5)', color: '#0f0', padding: '2px 6px', fontSize: '0.7em', borderRadius: '4px', pointerEvents: 'none', border: '1px solid #0f0', display: 'flex', gap: '8px', zIndex: 60 }}>
+          <span>FPS: {fps}</span>
+          {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: '#00f2ff' }}>⚡ GPU</span> : null}
         </div>
       </div>
 
@@ -739,7 +739,7 @@ ${ppPost}
             <textarea id="proCodeOutput" readOnly value={generateOneLiner()} style={{ height: '200px' }} />
           </div>
 
-          <button onClick={toggleProPanel} style={{ marginTop: '20px', background: '#d2007d' }}>❌ ラボを閉じて通常モードへ戻る</button>
+          <button onClick={toggleProPanel} style={{ marginTop: '20px', background: '#d2007d' }}>通常モードに戻る</button>
         </div>
       ) : (
         <div className="controls">
