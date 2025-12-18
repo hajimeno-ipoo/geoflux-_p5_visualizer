@@ -13,26 +13,39 @@ test('サイドパネルのタイトルが統一されて最上部にある', as
   const proPanelStart = appTsx.indexOf('<div className="panel-shared pro-panel">');
   assert.notEqual(proPanelStart, -1, 'ProパネルのDOM開始が見つからないよ');
 
-  const proTitle = appTsx.indexOf('preset-name preset-name--pro', proPanelStart);
   const proResetButton = appTsx.indexOf('<button onClick={handleProReset}', proPanelStart);
-  const proPanelHead = appTsx.slice(proPanelStart, proPanelStart + 300);
-  assert.notEqual(proTitle, -1, 'Proパネルのタイトルが見つからないよ');
+  const proReturnButton = appTsx.indexOf('<button onClick={toggleProPanel}', proPanelStart);
   assert.notEqual(proResetButton, -1, 'Proパネルのリセットボタンが見つからないよ');
-  assert.ok(proTitle < proResetButton, 'Proパネルはタイトルがいちばん上に来てほしいよ');
-  assert.match(
-    proPanelHead,
-    /<div className="preset-name preset-name--pro">Proモード<\/div>/,
-    'Proパネルのタイトルは「Proモード」にしてほしいよ',
-  );
+  assert.notEqual(proReturnButton, -1, 'Proパネルの「通常モードに戻る」ボタンが見つからないよ');
+  assert.ok(proReturnButton < proResetButton, 'Proパネルは「通常モードに戻る」をリセットより上にしてほしいよ');
+  const proPanelBeforeReset = appTsx.slice(proPanelStart, proResetButton);
+  assert.ok(!proPanelBeforeReset.includes('preset-name'), 'Proパネルの中にタイトルが入ってないでほしいよ');
+
+  const proTitleMarkup = '<div className="preset-name preset-name--pro">Proモード</div>';
+  const proTitle = appTsx.lastIndexOf(proTitleMarkup, proPanelStart);
+  assert.notEqual(proTitle, -1, 'Proパネルのタイトルが見つからないよ');
+  assert.ok(proTitle < proPanelStart, 'Proパネルのタイトルはサイドパネルの外に置いてほしいよ');
+
+  const proStackStart = appTsx.lastIndexOf('<div className="sidebar-stack">', proPanelStart);
+  assert.notEqual(proStackStart, -1, 'Pro側のラッパー(.sidebar-stack)が見つからないよ');
+  assert.ok(proStackStart < proTitle, 'Pro側のラッパー内にタイトルがあってほしいよ');
 
   const normalPanelStart = appTsx.indexOf('<div className="panel-shared controls">');
   assert.notEqual(normalPanelStart, -1, '通常パネルのDOM開始が見つからないよ');
 
-  const normalTitle = appTsx.indexOf('<div className="preset-name">{modeName}</div>', normalPanelStart);
   const normalResetButton = appTsx.indexOf('<button onClick={handleNormalReset}', normalPanelStart);
-  assert.notEqual(normalTitle, -1, '通常パネルのタイトルが見つからないよ');
   assert.notEqual(normalResetButton, -1, '通常パネルのリセットボタンが見つからないよ');
-  assert.ok(normalTitle < normalResetButton, '通常パネルはタイトルがいちばん上に来てほしいよ');
+  const normalPanelBeforeReset = appTsx.slice(normalPanelStart, normalResetButton);
+  assert.ok(!normalPanelBeforeReset.includes('preset-name'), '通常パネルの中にタイトルが入ってないでほしいよ');
+
+  const normalTitleMarkup = '<div className="preset-name">{modeName}</div>';
+  const normalTitle = appTsx.lastIndexOf(normalTitleMarkup, normalPanelStart);
+  assert.notEqual(normalTitle, -1, '通常パネルのタイトルが見つからないよ');
+  assert.ok(normalTitle < normalPanelStart, '通常パネルのタイトルはサイドパネルの外に置いてほしいよ');
+
+  const normalStackStart = appTsx.lastIndexOf('<div className="sidebar-stack">', normalPanelStart);
+  assert.notEqual(normalStackStart, -1, '通常側のラッパー(.sidebar-stack)が見つからないよ');
+  assert.ok(normalStackStart < normalTitle, '通常側のラッパー内にタイトルがあってほしいよ');
 });
 
 test('Proタイトル用のCSSがある', async () => {
@@ -43,5 +56,11 @@ test('Proタイトル用のCSSがある', async () => {
 test('タイトル見た目のCSSがある', async () => {
   const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
   assert.match(css, /\.preset-name\s*\{[\s\S]*?font-size:\s*1\.2em;/);
-  assert.match(css, /\.preset-name\s*\{[\s\S]*?margin:\s*0;/);
+  assert.match(css, /\.preset-name\s*\{[\s\S]*?margin:\s*16px 24px 12px 24px;/);
+  assert.match(css, /\.sidebar-stack\s*\{[\s\S]*?display:\s*flex;/);
+});
+
+test('コードコピー欄が横にはみ出さないCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.textarea-code\s*\{[\s\S]*?box-sizing:\s*border-box;/);
 });

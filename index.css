@@ -66,6 +66,18 @@ h1 {
   scrollbar-gutter: stable;
 }
 
+.sidebar-stack {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-stack .panel-shared {
+  flex: 1;
+  min-height: 0;
+}
+
 .pro-panel {
   animation: slidePanel 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -173,6 +185,16 @@ button:disabled {
   background: rgba(255, 55, 95, 0.3);
 }
 
+.btn-warning {
+  background: rgba(255, 214, 10, 0.18);
+  color: var(--accent-yellow);
+  border-color: rgba(255, 214, 10, 0.35);
+}
+
+.btn-warning:hover {
+  background: rgba(255, 214, 10, 0.26);
+}
+
 /* Sliders */
 .slider-group {
   display: flex;
@@ -228,16 +250,14 @@ select {
   font-weight: 700;
   color: var(--accent-yellow);
   text-align: center;
-  margin: 0;
+  margin: 16px 24px 12px 24px;
   padding: 12px 48px;
   border-radius: var(--radius-outer);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   letter-spacing: 0.06em;
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -313,6 +333,7 @@ select {
 .textarea-code {
   width: 100%;
   height: 120px;
+  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-inner);

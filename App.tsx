@@ -635,13 +635,15 @@ ${ppPost}
         </div>
       </div>
 
-		      {showProPanel ? (
-		        <div className="panel-shared pro-panel">
-		          <div className="preset-name preset-name--pro">Proモード</div>
-		          <button onClick={handleProReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+			      {showProPanel ? (
+			        <div className="sidebar-stack">
+				          <div className="preset-name preset-name--pro">Proモード</div>
+				          <div className="panel-shared pro-panel">
+				            <button onClick={toggleProPanel} className="btn-warning" style={{ marginBottom: '8px' }}>通常モードに戻る</button>
+				            <button onClick={handleProReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
 
-		          <div className="section-divider">
-		            <label className="section-title">📂 スナップショット (Snapshots)</label>
+			          <div className="section-divider">
+			            <label className="section-title">📂 スナップショット (Snapshots)</label>
 	            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
 	              {[0, 1, 2].map(i => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -790,17 +792,18 @@ ${ppPost}
             <textarea id="proCodeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
           </div>
 
-          <button onClick={toggleProPanel} className="btn-danger" style={{ marginTop: '24px' }}>通常モードに戻る</button>
-        </div>
-	      ) : (
-	        <div className="panel-shared controls">
-	          <div className="preset-name">{modeName}</div>
-	          <button onClick={handleNormalReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
-	          <button onClick={toggleProPanel} className="btn-primary" style={{ marginBottom: '16px' }}>🛠 Proモードを起動</button>
-	          <label>パターンモード</label>
-	          <select value={params.mode} onChange={e => handleParamChange('mode', e.target.value)} disabled={showProPanel}>
-	            <option value="moire">モアレ円回転</option><option value="spiral">螺旋渦巻き</option><option value="grid">グリッド干渉</option><option value="random">ランダムポイント接続</option><option value="flower">花びら放射</option><option value="wave">波状干渉</option><option value="shader">🌌 シェーダー (GLSL)</option>
-	          </select>
+				        </div>
+				      </div>
+		      ) : (
+		        <div className="sidebar-stack">
+		          <div className="preset-name">{modeName}</div>
+		          <div className="panel-shared controls">
+		            <button onClick={handleNormalReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+		            <button onClick={toggleProPanel} className="btn-primary" style={{ marginBottom: '16px' }}>🛠 Proモードを起動</button>
+		          <label>パターンモード</label>
+		          <select value={params.mode} onChange={e => handleParamChange('mode', e.target.value)} disabled={showProPanel}>
+		            <option value="moire">モアレ円回転</option><option value="spiral">螺旋渦巻き</option><option value="grid">グリッド干渉</option><option value="random">ランダムポイント接続</option><option value="flower">花びら放射</option><option value="wave">波状干渉</option><option value="shader">🌌 シェーダー (GLSL)</option>
+		          </select>
           <label>カラーパレット (シェーダー以外)</label>
           <select value={params.palette} onChange={e => handleParamChange('palette', e.target.value)} disabled={params.mode === 'shader' || showProPanel}>
             <option value="rainbow">🌈 Rainbow</option><option value="cyberpunk">🤖 Cyberpunk</option><option value="monochrome">🌑 Monochrome</option><option value="pastel">🌸 Pastel</option><option value="warm">🔥 Warm</option><option value="cool">💧 Cool</option><option value="golden">👑 Golden</option>
@@ -829,8 +832,9 @@ ${ppPost}
             <button onClick={() => copyCode('codeOutput')} className="btn-primary">📋 スクリプトをコピー</button>
             <textarea id="codeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
           </div>
-        </div>
-      )}
+		          </div>
+		        </div>
+		      )}
       <div className={`toast ${showToast ? 'show' : ''}`}>{toastMsg}</div>
     </div>
   );
