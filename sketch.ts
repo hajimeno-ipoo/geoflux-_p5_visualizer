@@ -325,6 +325,10 @@ export const createSketch = (
       if (pgShader) { pgShader.clear(); pgShader.background(PREVIEW_BG); }
     };
 
+    (p as any).resetAnimation = () => {
+      f = 0;
+    };
+
     p.setup = () => {
       const node = (p as any)._userNode;
       const w = (node && node.clientWidth > 0) ? node.clientWidth : 300;
@@ -485,7 +489,7 @@ export const createSketch = (
           pg.pop();
         }
         drawPostProcess(p, params);
-        f += currentSpeed;
+        if (p.isLooping()) f += currentSpeed;
       } catch (e) {
         console.error("Error in p5 draw loop:", e);
       }

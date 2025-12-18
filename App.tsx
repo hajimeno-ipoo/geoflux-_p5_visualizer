@@ -188,6 +188,7 @@ const App: React.FC = () => {
   const [fps, setFps] = useState<number>(0);
   const [energySaver, setEnergySaver] = useState(false);
   const [fpsLimit, setFpsLimit] = useState<number>(60);
+  const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 
   const paramsRef = useRef<AppParams>(defaultParams);
   const audioFileRef = useRef<File | null>(null);
@@ -419,6 +420,27 @@ const App: React.FC = () => {
     } else { document.exitFullscreen(); }
   };
 
+  const playPreview = () => {
+    if (!p5Instance.current) return;
+    p5Instance.current.loop();
+    setIsPreviewPaused(false);
+  };
+
+  const pausePreview = () => {
+    if (!p5Instance.current) return;
+    p5Instance.current.noLoop();
+    setIsPreviewPaused(true);
+  };
+
+  const stopPreview = () => {
+    if (!p5Instance.current) return;
+    p5Instance.current.noLoop();
+    (p5Instance.current as any).resetAnimation?.();
+    (p5Instance.current as any).clearCanvas?.();
+    p5Instance.current.redraw();
+    setIsPreviewPaused(true);
+  };
+
   const saveSnapshot = (idx: number) => {
     const newSnaps = [...snapshots];
     newSnaps[idx] = { ...params };
@@ -634,20 +656,25 @@ ${ppPost}
   };
 
   return (
-    <div className={`container${energySaver ? ' energy-saver' : ''}`}>
-      <div id="canvasContainer" className="canvas-container" ref={containerRef} onDoubleClick={toggleFullscreen}>
-        <div className="zoom-controls">
-          <div className="zoom-value">{Math.round(zoom * 100)}%</div>
+	    <div className={`container${energySaver ? ' energy-saver' : ''}`}>
+	      <div id="canvasContainer" className="canvas-container" ref={containerRef} onDoubleClick={toggleFullscreen}>
+	        <div className="zoom-controls">
+	          <div className="zoom-value">{Math.round(zoom * 100)}%</div>
           <div className="zoom-slider-wrapper">
             <input type="range" min="0.1" max="5.0" step="0.1" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="vertical-slider" title="プレビュー拡大/縮小" />
           </div>
           <button onClick={() => setZoom(1.0)} className="btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75em' }}>リセット</button>
         </div>
-        <div className="fps-indicator">
-          <span>FPS: {fps}</span>
-          {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: 'var(--accent-blue)', marginLeft: '8px' }}>⚡ GPU</span> : null}
-        </div>
-      </div>
+	        <div className="fps-indicator">
+	          <span>FPS: {fps}</span>
+	          {(params.gpuAccelerated && (params.mode === 'moire' || params.mode === 'spiral')) || params.mode === 'shader' ? <span style={{ color: 'var(--accent-blue)', marginLeft: '8px' }}>⚡ GPU</span> : null}
+	        </div>
+          <div className="preview-playback-controls">
+            <button onClick={playPreview} disabled={!isPreviewPaused} aria-label="再生">▶</button>
+            <button onClick={pausePreview} disabled={isPreviewPaused} aria-label="一時停止">⏸</button>
+            <button onClick={stopPreview} aria-label="停止">⏹</button>
+          </div>
+	      </div>
 
 			      {showProPanel ? (
 			        <div className="sidebar-stack">

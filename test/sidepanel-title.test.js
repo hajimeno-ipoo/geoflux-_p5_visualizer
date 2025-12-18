@@ -78,6 +78,21 @@ test('省エネ時にbackdrop-filterを無効化するCSSがある', async () =>
   assert.match(css, /\.container\.energy-saver[\s\S]*?-webkit-backdrop-filter:\s*none;/);
 });
 
+test('プレビューに再生/一時停止/停止ボタンがある', async () => {
+  const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
+  assert.ok(appTsx.includes('preview-playback-controls'), 'プレビューの再生UIが見つからないよ');
+  assert.ok(appTsx.includes('aria-label="再生"'), '再生ボタンが見つからないよ');
+  assert.ok(appTsx.includes('aria-label="一時停止"'), '一時停止ボタンが見つからないよ');
+  assert.ok(appTsx.includes('aria-label="停止"'), '停止ボタンが見つからないよ');
+});
+
+test('プレビュー再生UIが大きくなりすぎないCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.preview-playback-controls\s*\{[\s\S]*?padding:\s*6px;/);
+  assert.match(css, /\.preview-playback-controls\s+button\s*\{[\s\S]*?padding:\s*6px 8px;/);
+  assert.match(css, /\.preview-playback-controls\s+button\s*\{[\s\S]*?height:\s*30px;/);
+});
+
 test('通常モードにランダム生成ボタンがある', async () => {
   const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
   assert.ok(appTsx.includes('<button onClick={generateRandomParams}'), '通常モードの「ランダム生成」ボタンが見つからないよ');
@@ -105,4 +120,10 @@ test('sketch.ts のGC負荷を減らす修正が入ってる', async () => {
   assert.ok(!sketchTs.includes('p.random([-1, 1])'), 'p.random([-1, 1]) が残ってるよ');
   assert.ok(sketchTs.includes('getNearby(x: number, y: number, out?: SpatialItem[])'), 'SpatialHash.getNearby が配列再利用に対応してないよ');
   assert.ok(sketchTs.includes('function getColorValues(p: p5, val: number, palette: string, out: [number, number, number])'), 'getColorValues が配列再利用に対応してないよ');
+});
+
+test('プレビュー停止で時間をリセットできる', async () => {
+  const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
+  assert.ok(sketchTs.includes('(p as any).resetAnimation'), 'sketch.ts に resetAnimation が無いよ');
+  assert.ok(sketchTs.includes('if (p.isLooping()) f += currentSpeed;'), '停止中の redraw で時間が進まないようになってないよ');
 });

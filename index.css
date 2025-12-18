@@ -69,7 +69,8 @@ h1 {
 .container.energy-saver .panel-shared,
 .container.energy-saver .preset-name,
 .container.energy-saver .fps-indicator,
-.container.energy-saver .zoom-controls {
+.container.energy-saver .zoom-controls,
+.container.energy-saver .preview-playback-controls {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -319,6 +320,27 @@ select {
   color: var(--accent-yellow);
   font-family: monospace;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-playback-controls {
+  position: absolute;
+  bottom: 44px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.preview-playback-controls button {
+  padding: 6px 8px;
+  font-size: 0.85em;
+  min-width: 38px;
+  height: 30px;
 }
 
 /* Zoom Controls UI */
