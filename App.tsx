@@ -208,7 +208,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!containerRef.current) return;
     const sketch = createSketch(paramsRef, audioFileRef, zoomRef);
-    const p5Obj = new p5(sketch, containerRef.current);
+    const P5Ctor = ((window as any).p5 ?? p5) as typeof p5;
+    const p5Obj = new P5Ctor(sketch, containerRef.current);
     p5Instance.current = p5Obj;
     p5Obj.frameRate(fpsLimit);
     (p5Obj as any).onAudioPlayStateChange = (playing: boolean) => { setIsAudioPlaying(playing); };
@@ -335,11 +336,11 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (file && p5Instance.current) {
       audioFileRef.current = file;
-      const ok = (p5Instance.current as any).updateAudioFile(file);
-      if (ok === false) {
-        setHasAudio(false); setIsAudioPlaying(false); displayToast('この環境だと音声が使えないみたい…');
-        return;
-      }
+	      const ok = (p5Instance.current as any).updateAudioFile(file);
+	      if (ok === false) {
+	        setHasAudio(false); setIsAudioPlaying(false); displayToast('音声が使えないみたい…（localhost/httpsで開いてね）');
+	        return;
+	      }
       setHasAudio(true); setIsAudioPlaying(false); displayToast('音楽ファイルを読み込み中…');
     }
   };

@@ -98,9 +98,10 @@ test('通常モードにランダム生成ボタンがある', async () => {
   assert.ok(appTsx.includes('<button onClick={generateRandomParams}'), '通常モードの「ランダム生成」ボタンが見つからないよ');
 });
 
-test('p5.soundを読み込まない（AudioWorklet回避）', async () => {
-  const html = await readFile(path.join(projectRoot, 'index.html'), 'utf8');
-  assert.ok(!html.includes('p5.sound.min.js'), 'index.html に p5.sound の読み込みが残ってるよ');
+test('p5.soundを使う（音楽っぽい帯域のため）', async () => {
+  const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
+  assert.ok(sketchTs.includes("p5/lib/addons/p5.sound"), 'sketch.ts で p5.sound を読み込んでないよ');
+  assert.ok(sketchTs.includes("getEnergy?.('bass')"), 'p5.FFT.getEnergy(bass) が見つからないよ');
 });
 
 test('audioFileRefがsketch内で使われている', async () => {

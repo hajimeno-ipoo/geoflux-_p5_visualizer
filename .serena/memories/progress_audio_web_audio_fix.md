@@ -1,28 +1,24 @@
-# 進捗メモ: 音声が再生できない（AudioWorkletエラー）対策
+# 進捗メモ: 音声再生まわり（Web Audio → p5.soundへ戻した）
 
-## 症状
-- Chrome Console に `InvalidStateError: Failed to construct 'AudioWorkletNode'` が出て、再生/停止が動かない。
-- p5.sound が内部で AudioWorkletNode を使うため、初期化/生成に失敗すると音再生が止まる。
+## これまで
+- 以前は `InvalidStateError: Failed to construct 'AudioWorkletNode'` などのエラー回避のため、
+  一度 Web Audio API（`AudioContext` + `AnalyserNode` + `GainNode` + `HTMLAudioElement`）に置き換えていた。
 
-## 対応（最小置き換え）
-- `p5.sound` 依存を外し、Web Audio API（`AudioContext` + `AnalyserNode` + `GainNode` + `HTMLAudioElement`）で
-  - 音声ファイル再生
-  - 音量
-  - 解析（bass/mid/treble + RMS）
-  を行うように変更。
+## いま（最新版）
+- ユーザー要望により **p5.sound に復帰**（音楽的にチューニングされた帯域(bass/mid/treble)を重視）。
+- `sketch.ts` で `import 'p5/lib/addons/p5.sound';` を使い、
+  - 再生: `p.loadSound(...).play()/pause()/stop()`
+  - 解析: `p5.FFT.getEnergy('bass'|'mid'|'treble')` / `p5.Amplitude.getLevel()`
+  に統一。
 
-## 変更点
-- `sketch.ts`
-  - `updateAudioFile/toggleAudio/stopAudio/setAudioVolume` を Web Audio API ベースに置き換え
-  - `p.draw` 内の音声解析を `AnalyserNode.getByteFrequencyData/getByteTimeDomainData` へ切替
-  - `onAudioPlayStateChange` 通知は維持
-- `index.html`
-  - CDN の `p5.sound.min.js` 読み込みを削除
-- `App.tsx`
-  - `updateAudioFile` 失敗時のトースト文言を一般化
-- `test/sidepanel-title.test.js`
-  - `p5.sound` 読み込みが残っていないことのチェックに更新
+## 追加で踏んだ罠と対策
+- 罠: 環境によっては p5 が「CDNで入ったグローバルp5」と「Viteでimportしたp5」でズレて、
+  p5.soundの `loadSound/FFT/Amplitude` が `new p5(...)` 側に見えず、`updateAudioFile` が `false` になる。
+- 対策（最小）
+  - `App.tsx`: `new p5(...)` の生成に `window.p5` を優先
+  - `sketch.ts`: `loadSound/userStartAudio` を `p` or `globalThis` から拾えるようにフォールバック、`FFT/Amplitude` の生成も `globalThis.p5` 優先
 
 ## 実行確認
 - `npm test` OK
 - `npm run build` OK
+- E2Eで「ファイル選択 → ▶再生 → ⏸一時停止 → ⏹停止」まで動作確認済み

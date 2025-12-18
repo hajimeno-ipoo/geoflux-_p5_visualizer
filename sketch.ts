@@ -1,5 +1,6 @@
 import React from 'react';
 import p5 from 'p5';
+import 'p5/lib/addons/p5.sound';
 import { AppParams } from './types';
 
 const TWO_PI = Math.PI * 2;
@@ -79,23 +80,20 @@ export const createSketch = (
   zoomRef: React.MutableRefObject<number>
 ) => {
   return (p: p5) => {
-    const PREVIEW_BG = '#050816';
-    const PREVIEW_BG_RGB = '5, 8, 22';
-    let f = 0;
-    let audioCtx: AudioContext | null = null;
-    let analyser: AnalyserNode | null = null;
-    let gainNode: GainNode | null = null;
-    let audioEl: HTMLAudioElement | null = null;
-    let audioSrcNode: MediaElementAudioSourceNode | null = null;
-    let audioObjectUrl: string | null = null;
-    let freqData: Uint8Array | null = null;
-    let timeData: Uint8Array | null = null;
-    let pendingPlay = false;
-    let audioReady = false;
-    let audioBass = 0;
-    let audioMid = 0;
-    let audioTreble = 0;
-    let audioLevel = 0;
+	    const PREVIEW_BG = '#050816';
+	    const PREVIEW_BG_RGB = '5, 8, 22';
+	    let f = 0;
+	    let soundFile: any = null;
+	    let fft: any = null;
+	    let amp: any = null;
+	    let audioObjectUrl: string | null = null;
+	    let pendingPlay = false;
+	    let audioReady = false;
+	    let audioLoading = false;
+	    let audioBass = 0;
+	    let audioMid = 0;
+	    let audioTreble = 0;
+	    let audioLevel = 0;
     let pg: p5.Graphics;
     let pgShader: p5.Graphics;
     let theShader: p5.Shader;
@@ -194,128 +192,116 @@ export const createSketch = (
       }
     `;
 
-    const notifyAudioPlayState = (playing: boolean) => {
-      const cb = (p as any).onAudioPlayStateChange;
-      if (typeof cb === 'function') cb(playing);
-    };
+	    const notifyAudioPlayState = (playing: boolean) => {
+	      const cb = (p as any).onAudioPlayStateChange;
+	      if (typeof cb === 'function') cb(playing);
+	    };
 
-    const getOrCreateAudioContext = () => {
-      if (audioCtx) return audioCtx;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return null;
-      audioCtx = new AudioCtx();
-      return audioCtx;
-    };
+	    const getP5SoundRoot = () => ((globalThis as any).p5 ?? p5) as any;
 
-    const ensureAudioContext = () => {
-      const ctx = getOrCreateAudioContext();
-      if (!ctx) return;
-      if (ctx.state !== 'running') ctx.resume().catch(() => { });
-    };
+	    const ensureP5Sound = () => {
+	      const P5Sound = getP5SoundRoot();
+	      const loadSoundFn = (p as any).loadSound ?? (globalThis as any).loadSound;
+	      const hasLoadSound = typeof loadSoundFn === 'function';
+	      const hasFFT = typeof P5Sound?.FFT === 'function';
+	      const hasAmplitude = typeof P5Sound?.Amplitude === 'function';
+	      if (!hasLoadSound || !hasFFT || !hasAmplitude) return false;
+	      if (!fft) fft = new P5Sound.FFT(0.8, 1024);
+	      if (!amp) amp = new P5Sound.Amplitude(0.9);
+	      return true;
+	    };
 
-    const teardownAudioGraph = () => {
-      pendingPlay = false;
-      audioReady = false;
-      if (audioEl) {
-        try { audioEl.pause(); } catch { }
-        audioEl.src = '';
-        audioEl = null;
-      }
-      if (audioSrcNode) { try { audioSrcNode.disconnect(); } catch { } audioSrcNode = null; }
-      if (analyser) { try { analyser.disconnect(); } catch { } analyser = null; }
-      if (gainNode) { try { gainNode.disconnect(); } catch { } gainNode = null; }
-      if (audioObjectUrl) { URL.revokeObjectURL(audioObjectUrl); audioObjectUrl = null; }
-      freqData = null;
-      timeData = null;
-      notifyAudioPlayState(false);
-    };
+	    const teardownSound = () => {
+	      pendingPlay = false;
+	      audioReady = false;
+	      audioLoading = false;
+	      if (soundFile) {
+	        try { soundFile.stop(); } catch { }
+	        try { soundFile.disconnect(); } catch { }
+	        soundFile = null;
+	      }
+	      if (audioObjectUrl) { URL.revokeObjectURL(audioObjectUrl); audioObjectUrl = null; }
+	      notifyAudioPlayState(false);
+	    };
 
-    (p as any).updateAudioFile = (file: File, autoplay = false) => {
-      const ctx = getOrCreateAudioContext();
-      if (!ctx) return false;
+	    (p as any).updateAudioFile = (file: File, autoplay = false) => {
+	      if (!ensureP5Sound()) return false;
+	      try { ((p as any).userStartAudio ?? (globalThis as any).userStartAudio)?.call(p); } catch { }
+	      teardownSound();
 
-      teardownAudioGraph();
+	      const currentVol = paramsRef.current.mode === 'custom' ? paramsRef.current.customAudioVol : paramsRef.current.audioVol;
 
-      const currentVol = paramsRef.current.mode === 'custom' ? paramsRef.current.customAudioVol : paramsRef.current.audioVol;
+	      audioObjectUrl = URL.createObjectURL(file);
+	      pendingPlay = autoplay;
+	      audioLoading = true;
 
-      audioEl = new Audio();
-      audioEl.preload = 'auto';
-      audioEl.loop = false;
-      audioObjectUrl = URL.createObjectURL(file);
-      audioEl.src = audioObjectUrl;
+	      const loadSoundFn = (p as any).loadSound ?? (globalThis as any).loadSound;
+	      soundFile = loadSoundFn.call(
+	        p,
+	        audioObjectUrl,
+	        () => {
+	          audioLoading = false;
+	          audioReady = true;
+	          try { soundFile?.setVolume?.(currentVol); } catch { }
+	          try { fft?.setInput?.(soundFile); } catch { }
+	          try { amp?.setInput?.(soundFile); } catch { }
+	          try { soundFile?.onended?.(() => notifyAudioPlayState(false)); } catch { }
 
-      gainNode = ctx.createGain();
-      gainNode.gain.value = currentVol;
-      analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.8;
-      freqData = new Uint8Array(analyser.frequencyBinCount);
-      timeData = new Uint8Array(analyser.fftSize);
+	          if (pendingPlay) {
+	            pendingPlay = false;
+	            try { ((p as any).userStartAudio ?? (globalThis as any).userStartAudio)?.call(p); } catch { }
+	            try { soundFile?.play?.(); } catch { }
+	            notifyAudioPlayState(true);
+	          }
+	        },
+	        (e: any) => {
+	          console.warn('Failed to load audio file:', e);
+	          audioLoading = false;
+	          pendingPlay = false;
+	          audioReady = false;
+	          notifyAudioPlayState(false);
+	        }
+	      );
 
-      audioSrcNode = ctx.createMediaElementSource(audioEl);
-      audioSrcNode.connect(gainNode);
-      gainNode.connect(analyser);
-      analyser.connect(ctx.destination);
+	      notifyAudioPlayState(false);
+	      return true;
+	    };
 
-      audioEl.addEventListener('playing', () => notifyAudioPlayState(true));
-      audioEl.addEventListener('pause', () => notifyAudioPlayState(false));
-      audioEl.addEventListener('ended', () => notifyAudioPlayState(false));
-      audioEl.addEventListener('canplay', () => {
-        audioReady = true;
-        if (pendingPlay) {
-          pendingPlay = false;
-          ensureAudioContext();
-          audioEl?.play().catch(() => { });
-        }
-      });
-      audioEl.addEventListener('error', (e) => {
-        console.warn('Failed to load audio file:', e);
-        pendingPlay = false;
-        audioReady = false;
-        notifyAudioPlayState(false);
-      });
+	    (p as any).toggleAudio = () => {
+	      if (!ensureP5Sound()) return false;
+	      try { ((p as any).userStartAudio ?? (globalThis as any).userStartAudio)?.call(p); } catch { }
 
-      notifyAudioPlayState(false);
-      pendingPlay = autoplay;
-      if (pendingPlay && audioReady) {
-        pendingPlay = false;
-        ensureAudioContext();
-        audioEl.play().catch(() => { });
-      }
-      return true;
-    };
+	      if (!soundFile) {
+	        if (audioFileRef.current) (p as any).updateAudioFile(audioFileRef.current, true);
+	        return false;
+	      }
+	      if (audioLoading || !audioReady) {
+	        pendingPlay = true;
+	        return false;
+	      }
+	      if (soundFile.isPlaying?.()) {
+	        pendingPlay = false;
+	        try { soundFile.pause?.(); } catch { }
+	        notifyAudioPlayState(false);
+	        return false;
+	      }
+	      pendingPlay = false;
+	      try { soundFile.play?.(); } catch { }
+	      notifyAudioPlayState(true);
+	      return true;
+	    };
 
-    (p as any).toggleAudio = () => {
-      ensureAudioContext();
-      if (!audioEl) {
-        if (audioFileRef.current) (p as any).updateAudioFile(audioFileRef.current, true);
-        return false;
-      }
-      if (!audioEl.paused) {
-        pendingPlay = false;
-        audioEl.pause();
-        return false;
-      }
-      pendingPlay = true;
-      if (audioReady) {
-        pendingPlay = false;
-        audioEl.play().catch(() => { pendingPlay = true; });
-      }
-      return false;
-    };
-
-    (p as any).stopAudio = () => {
-      pendingPlay = false;
-      if (!audioEl) { notifyAudioPlayState(false); return; }
-      audioEl.pause();
-      try { audioEl.currentTime = 0; } catch { }
-      notifyAudioPlayState(false);
-    };
-    (p as any).setAudioVolume = (vol: number) => { if (gainNode) gainNode.gain.value = vol; };
-    (p as any).exportHighRes = () => {
-      const currentDensity = p.pixelDensity();
-      p.pixelDensity(2);
-      p.saveCanvas('pattern-HD-' + Date.now(), 'png');
+	    (p as any).stopAudio = () => {
+	      pendingPlay = false;
+	      if (!soundFile) { notifyAudioPlayState(false); return; }
+	      try { soundFile.stop?.(); } catch { }
+	      notifyAudioPlayState(false);
+	    };
+	    (p as any).setAudioVolume = (vol: number) => { try { soundFile?.setVolume?.(vol); } catch { } };
+	    (p as any).exportHighRes = () => {
+	      const currentDensity = p.pixelDensity();
+	      p.pixelDensity(2);
+	      p.saveCanvas('pattern-HD-' + Date.now(), 'png');
       p.pixelDensity(currentDensity);
     };
 
@@ -360,54 +346,31 @@ export const createSketch = (
       linesDrawn = 0;
 
       try {
-        {
-          const isCustomMode = params.mode === 'custom';
-          const sens = isCustomMode ? params.customAudioSens : params.audioSens;
-          const sBass = isCustomMode ? params.customAudioSensBass : params.audioSensBass;
-          const sMid = isCustomMode ? params.customAudioSensMid : params.audioSensMid;
-          const sTreble = isCustomMode ? params.customAudioSensTreble : params.audioSensTreble;
+	        {
+	          const isCustomMode = params.mode === 'custom';
+	          const sens = isCustomMode ? params.customAudioSens : params.audioSens;
+	          const sBass = isCustomMode ? params.customAudioSensBass : params.audioSensBass;
+	          const sMid = isCustomMode ? params.customAudioSensMid : params.audioSensMid;
+	          const sTreble = isCustomMode ? params.customAudioSensTreble : params.audioSensTreble;
 
-          if (analyser && freqData && timeData && audioCtx) {
-            analyser.getByteFrequencyData(freqData);
-            analyser.getByteTimeDomainData(timeData);
+	          if (fft && amp && soundFile && audioReady && soundFile.isPlaying?.()) {
+	            try { fft.analyze?.(); } catch { }
+	            const bass = (fft.getEnergy?.('bass') ?? 0) / 255;
+	            const mid = (fft.getEnergy?.('mid') ?? 0) / 255;
+	            const treble = (fft.getEnergy?.('treble') ?? 0) / 255;
+	            const level = amp.getLevel?.() ?? 0;
 
-            const freqLen = freqData.length;
-            const binHz = (audioCtx.sampleRate / 2) / Math.max(1, freqLen);
-            const clampIndex = (hz: number) => {
-              const idx = Math.floor(hz / binHz);
-              return Math.max(0, Math.min(freqLen - 1, idx));
-            };
-            const avgBand = (fromHz: number, toHz: number) => {
-              if (!binHz || !isFinite(binHz)) return 0;
-              const start = clampIndex(fromHz);
-              const end = Math.max(start + 1, clampIndex(toHz));
-              let sum = 0;
-              for (let i = start; i < end; i++) sum += freqData[i];
-              return (sum / (end - start)) / 255;
-            };
-
-            const bass = avgBand(20, 140);
-            const mid = avgBand(140, 1000);
-            const treble = avgBand(1000, 8000);
-
-            let sumSq = 0;
-            for (let i = 0; i < timeData.length; i++) {
-              const v = (timeData[i] - 128) / 128;
-              sumSq += v * v;
-            }
-            const rms = Math.sqrt(sumSq / Math.max(1, timeData.length));
-
-            audioBass = bass * sens * sBass;
-            audioMid = mid * sens * sMid;
-            audioTreble = treble * sens * sTreble;
-            audioLevel = rms * sens;
-          } else {
-            audioBass = 0;
-            audioMid = 0;
-            audioTreble = 0;
-            audioLevel = 0;
-          }
-        }
+	            audioBass = bass * sens * sBass;
+	            audioMid = mid * sens * sMid;
+	            audioTreble = treble * sens * sTreble;
+	            audioLevel = level * sens;
+	          } else {
+	            audioBass = 0;
+	            audioMid = 0;
+	            audioTreble = 0;
+	            audioLevel = 0;
+	          }
+	        }
 
         const isCustom = params.mode === 'custom';
         const currentSpeed = isCustom ? params.customSpeed : params.speed;

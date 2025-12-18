@@ -2,10 +2,13 @@
 
 - 対象: `readme.md`
 - 対応内容:
-  - UI/機能に合わせて README を全面的に書き換え
+  - UI/機能に合わせて README を更新
   - 描画モード一覧（moire/spiral/grid/random/flower/wave/shader）を明記
   - 音声リアクティブは「音声ファイル対応」のみに修正（マイク入力は非対応と明記）
+  - 音声まわりは Web Audio API 前提に更新（p5.sound は使っていない）
   - Proモード（スナップショット/ランダム生成/オーディオマッピング）を追記
+  - 省エネ（ぼかしOFF / FPS上限）を追記
+  - プレビューの再生/一時停止/停止（▶/⏸/⏹）を追記
   - 便利機能（全画面/ズーム/画像保存/スクリプトコピー/ポストプロセス）を追記
   - コマンドを package.json の scripts に合わせて整理（dev/build/preview/test）
 
