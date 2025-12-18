@@ -21,30 +21,52 @@ const fastCos = (rad: number) => {
   return COS_LUT[idx];
 };
 
+type SpatialItem = { x: number; y: number; data: any };
+
 class SpatialHash {
-  private grid: Map<string, any[]>;
+  private grid: Map<string, SpatialItem[]>;
   private cellSize: number;
+  private itemPool: SpatialItem[];
+  private listPool: SpatialItem[][];
   constructor(cellSize: number) {
     this.grid = new Map();
     this.cellSize = cellSize;
+    this.itemPool = [];
+    this.listPool = [];
   }
   clear() {
+    for (const items of this.grid.values()) {
+      for (let i = 0; i < items.length; i++) this.itemPool.push(items[i]);
+      items.length = 0;
+      this.listPool.push(items);
+    }
     this.grid.clear();
   }
   add(x: number, y: number, data: any) {
     const key = `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`;
-    if (!this.grid.has(key)) this.grid.set(key, []);
-    this.grid.get(key)!.push({ x, y, data });
+    let items = this.grid.get(key);
+    if (!items) {
+      items = this.listPool.pop() ?? [];
+      this.grid.set(key, items);
+    }
+    const item = this.itemPool.pop() ?? { x, y, data };
+    item.x = x;
+    item.y = y;
+    item.data = data;
+    items.push(item);
   }
-  getNearby(x: number, y: number) {
+  getNearby(x: number, y: number, out?: SpatialItem[]) {
     const cx = Math.floor(x / this.cellSize);
     const cy = Math.floor(y / this.cellSize);
-    const results: any[] = [];
+    const results: SpatialItem[] = out ?? [];
+    results.length = 0;
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const key = `${cx + dx},${cy + dy}`;
         const items = this.grid.get(key);
-        if (items) results.push(...items);
+        if (items) {
+          for (let i = 0; i < items.length; i++) results.push(items[i]);
+        }
       }
     }
     return results;
@@ -87,6 +109,8 @@ export const createSketch = (
     const moireY = new Float32Array(MAX_POINTS);
     const randomX = new Float32Array(MAX_POINTS);
     const randomY = new Float32Array(MAX_POINTS);
+    const spatialNearby: SpatialItem[] = [];
+    const colorBuf: [number, number, number] = [0, 0, 0];
 
     const vertSrc = `
       attribute vec3 aPosition;
@@ -484,15 +508,22 @@ export const createSketch = (
       pg.stroke(h, s, b, a);
     }
 
-    function getColorValues(p: p5, val: number, palette: string): number[] {
+    function getColorValues(p: p5, val: number, palette: string, out: [number, number, number]) {
       switch (palette) {
-        case 'cyberpunk': return [p.map(p.sin(val * 0.02), -1, 1, 180, 320), 90, 100];
-        case 'monochrome': return [0, 0, p.map(p.sin(val * 0.05), -1, 1, 40, 100)];
-        case 'pastel': return [val % 360, 40, 95];
-        case 'warm': return [p.map(p.sin(val * 0.03), -1, 1, 330, 420) % 360, 90, 100];
-        case 'cool': return [p.map(p.sin(val * 0.03), -1, 1, 150, 260), 80, 100];
-        case 'golden': return [p.map(p.sin(val * 0.04), -1, 1, 30, 55), p.map(p.sin(val * 0.1), -1, 1, 70, 100), p.map(p.cos(val * 0.1), -1, 1, 80, 100)];
-        default: return [val % 360, 80, 100];
+        case 'cyberpunk':
+          out[0] = p.map(p.sin(val * 0.02), -1, 1, 180, 320); out[1] = 90; out[2] = 100; break;
+        case 'monochrome':
+          out[0] = 0; out[1] = 0; out[2] = p.map(p.sin(val * 0.05), -1, 1, 40, 100); break;
+        case 'pastel':
+          out[0] = val % 360; out[1] = 40; out[2] = 95; break;
+        case 'warm':
+          out[0] = p.map(p.sin(val * 0.03), -1, 1, 330, 420) % 360; out[1] = 90; out[2] = 100; break;
+        case 'cool':
+          out[0] = p.map(p.sin(val * 0.03), -1, 1, 150, 260); out[1] = 80; out[2] = 100; break;
+        case 'golden':
+          out[0] = p.map(p.sin(val * 0.04), -1, 1, 30, 55); out[1] = p.map(p.sin(val * 0.1), -1, 1, 70, 100); out[2] = p.map(p.cos(val * 0.1), -1, 1, 80, 100); break;
+        default:
+          out[0] = val % 360; out[1] = 80; out[2] = 100;
       }
     }
 
@@ -589,8 +620,8 @@ export const createSketch = (
 
             for (let i = 0; i < layerPoints.length; i += skip) {
               if (linesDrawn >= LINE_BUDGET) break;
-              const p1 = layerPoints[i];
-              const nearby = hash.getNearby(p1.x, p1.y);
+	              const p1 = layerPoints[i];
+	              const nearby = hash.getNearby(p1.x, p1.y, spatialNearby);
 
               for (const other of nearby) {
                 const j = other.data;
@@ -651,9 +682,9 @@ export const createSketch = (
       const skip = 1;
 
       for (let i = 0; i < idx; i += skip) {
-        if (linesDrawn >= LINE_BUDGET) break;
-        let px = moireX[i]; let py = moireY[i];
-        const nearby = hash.getNearby(px, py);
+	        if (linesDrawn >= LINE_BUDGET) break;
+	        let px = moireX[i]; let py = moireY[i];
+	        const nearby = hash.getNearby(px, py, spatialNearby);
 
         for (const other of nearby) {
           const k = other.data;
@@ -718,14 +749,14 @@ export const createSketch = (
       pg.pop();
     }
 
-    function drawRandom(p: p5, params: AppParams, minDim: number, palette: string) {
-      const safeRadius = (minDim * 0.4) * (1 + audioBass * 0.2);
-      const count = params.randomPoints;
-      for (let i = 0; i < count; i++) {
-        let ang = p.random(p.TAU) + f * p.random([-1, 1]);
-        let r = p.random(safeRadius);
-        randomX[i] = fastCos(ang) * r; randomY[i] = fastSin(ang) * r;
-      }
+	    function drawRandom(p: p5, params: AppParams, minDim: number, palette: string) {
+	      const safeRadius = (minDim * 0.4) * (1 + audioBass * 0.2);
+	      const count = params.randomPoints;
+	      for (let i = 0; i < count; i++) {
+	        let ang = p.random(p.TAU) + f * (p.random() < 0.5 ? -1 : 1);
+	        let r = p.random(safeRadius);
+	        randomX[i] = fastCos(ang) * r; randomY[i] = fastSin(ang) * r;
+	      }
       pg.strokeWeight(1 + audioTreble * 4.0);
 
       const hash: SpatialHash = (p as any).spatialHash;
@@ -738,10 +769,10 @@ export const createSketch = (
       }
 
       const threshSq = maxDist * maxDist;
-      for (let i = 0; i < count; i++) {
-        if (linesDrawn >= LINE_BUDGET) break;
-        const px = randomX[i]; const py = randomY[i];
-        const nearby = hash.getNearby(px, py);
+	      for (let i = 0; i < count; i++) {
+	        if (linesDrawn >= LINE_BUDGET) break;
+	        const px = randomX[i]; const py = randomY[i];
+	        const nearby = hash.getNearby(px, py, spatialNearby);
 
         for (const other of nearby) {
           const j = other.data;
@@ -749,16 +780,16 @@ export const createSketch = (
           if (linesDrawn >= LINE_BUDGET) break;
 
           let dx = px - other.x; let dy = py - other.y;
-          let distSq = dx * dx + dy * dy;
-          if (distSq < threshSq) {
-            let d = Math.sqrt(distSq);
-            const [h, s, b] = getColorValues(p, i + f * params.hueSpeed, palette);
-            pg.stroke(h, s, b, p.map(d, 0, maxDist, params.alpha, 0));
-            pg.line(px, py, other.x, other.y);
-            linesDrawn++;
-          }
-        }
-      }
+	          let distSq = dx * dx + dy * dy;
+	          if (distSq < threshSq) {
+	            let d = Math.sqrt(distSq);
+	            getColorValues(p, i + f * params.hueSpeed, palette, colorBuf);
+	            pg.stroke(colorBuf[0], colorBuf[1], colorBuf[2], p.map(d, 0, maxDist, params.alpha, 0));
+	            pg.line(px, py, other.x, other.y);
+	            linesDrawn++;
+	          }
+	        }
+	      }
     }
 
     function drawFlower(p: p5, params: AppParams, minDim: number, palette: string) {

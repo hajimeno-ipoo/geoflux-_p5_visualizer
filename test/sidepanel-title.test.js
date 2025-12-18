@@ -65,6 +65,19 @@ test('コードコピー欄が横にはみ出さないCSSがある', async () =>
   assert.match(css, /\.textarea-code\s*\{[\s\S]*?box-sizing:\s*border-box;/);
 });
 
+test('省エネトグルとFPS上限がある', async () => {
+  const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
+  assert.ok(appTsx.includes('ぼかし（ガラス）をオフ'), '省エネトグル（ぼかしOFF）が見つからないよ');
+  assert.ok(appTsx.includes('FPS上限'), 'FPS上限のUIが見つからないよ');
+  assert.ok(appTsx.includes('frameRate(fpsLimit)'), 'fpsLimit を p5 に反映してないっぽいよ');
+});
+
+test('省エネ時にbackdrop-filterを無効化するCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.container\.energy-saver\s+\.panel-shared[\s\S]*?backdrop-filter:\s*none;/);
+  assert.match(css, /\.container\.energy-saver[\s\S]*?-webkit-backdrop-filter:\s*none;/);
+});
+
 test('通常モードにランダム生成ボタンがある', async () => {
   const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
   assert.ok(appTsx.includes('<button onClick={generateRandomParams}'), '通常モードの「ランダム生成」ボタンが見つからないよ');
@@ -85,4 +98,11 @@ test('再生状態がsketchからAppへ通知される', async () => {
   const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
   assert.ok(appTsx.includes('onAudioPlayStateChange'), 'App.tsx に onAudioPlayStateChange の受け口が無いよ');
   assert.ok(sketchTs.includes('onAudioPlayStateChange'), 'sketch.ts から onAudioPlayStateChange を呼んでないよ');
+});
+
+test('sketch.ts のGC負荷を減らす修正が入ってる', async () => {
+  const sketchTs = await readFile(path.join(projectRoot, 'sketch.ts'), 'utf8');
+  assert.ok(!sketchTs.includes('p.random([-1, 1])'), 'p.random([-1, 1]) が残ってるよ');
+  assert.ok(sketchTs.includes('getNearby(x: number, y: number, out?: SpatialItem[])'), 'SpatialHash.getNearby が配列再利用に対応してないよ');
+  assert.ok(sketchTs.includes('function getColorValues(p: p5, val: number, palette: string, out: [number, number, number])'), 'getColorValues が配列再利用に対応してないよ');
 });

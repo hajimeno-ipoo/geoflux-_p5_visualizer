@@ -186,6 +186,8 @@ const App: React.FC = () => {
   const [zoom, setZoom] = useState(1.0);
   const [snapshots, setSnapshots] = useState<(AppParams | null)[]>([null, null, null]);
   const [fps, setFps] = useState<number>(0);
+  const [energySaver, setEnergySaver] = useState(false);
+  const [fpsLimit, setFpsLimit] = useState<number>(60);
 
   const paramsRef = useRef<AppParams>(defaultParams);
   const audioFileRef = useRef<File | null>(null);
@@ -207,6 +209,7 @@ const App: React.FC = () => {
     const sketch = createSketch(paramsRef, audioFileRef, zoomRef);
     const p5Obj = new p5(sketch, containerRef.current);
     p5Instance.current = p5Obj;
+    p5Obj.frameRate(fpsLimit);
     (p5Obj as any).onAudioPlayStateChange = (playing: boolean) => { setIsAudioPlaying(playing); };
 
     // FPSの更新ループを追加
@@ -227,6 +230,10 @@ const App: React.FC = () => {
       clearInterval(fpsInterval);
     };
   }, []);
+
+  useEffect(() => {
+    if (p5Instance.current) p5Instance.current.frameRate(fpsLimit);
+  }, [fpsLimit]);
 
   useLayoutEffect(() => {
     const handleResize = () => {
@@ -627,7 +634,7 @@ ${ppPost}
   };
 
   return (
-    <div className="container">
+    <div className={`container${energySaver ? ' energy-saver' : ''}`}>
       <div id="canvasContainer" className="canvas-container" ref={containerRef} onDoubleClick={toggleFullscreen}>
         <div className="zoom-controls">
           <div className="zoom-value">{Math.round(zoom * 100)}%</div>
@@ -646,13 +653,26 @@ ${ppPost}
 			        <div className="sidebar-stack">
 				          <div className="preset-name preset-name--pro">Proモード</div>
 				          <div className="panel-shared pro-panel">
-				            <button onClick={toggleProPanel} className="btn-warning" style={{ marginBottom: '8px' }}>通常モードに戻る</button>
-				            <button onClick={handleProReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+					            <button onClick={toggleProPanel} className="btn-warning" style={{ marginBottom: '8px' }}>通常モードに戻る</button>
+					            <button onClick={handleProReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+                      <div className="section-divider">
+                        <label className="section-title">⚡ 省エネ</label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input type="checkbox" checked={energySaver} onChange={e => setEnergySaver(e.target.checked)} />
+                          ぼかし（ガラス）をオフ
+                        </label>
+                        <label>FPS上限</label>
+                        <select value={fpsLimit} onChange={e => setFpsLimit(parseInt(e.target.value, 10))}>
+                          <option value={60}>60</option>
+                          <option value={30}>30</option>
+                          <option value={15}>15</option>
+                        </select>
+                      </div>
 
-			          <div className="section-divider">
-			            <label className="section-title">📂 スナップショット (Snapshots)</label>
-	            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-	              {[0, 1, 2].map(i => (
+				          <div className="section-divider">
+				            <label className="section-title">📂 スナップショット (Snapshots)</label>
+		            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+		              {[0, 1, 2].map(i => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <button onClick={() => saveSnapshot(i)} style={{ fontSize: '0.75em', padding: '6px' }}>Save {i + 1}</button>
                   <button onClick={() => loadSnapshot(i)} disabled={!snapshots[i]} style={{ fontSize: '0.75em', padding: '6px' }}>Load {i + 1}</button>
@@ -803,14 +823,27 @@ ${ppPost}
 				      </div>
 		      ) : (
 		        <div className="sidebar-stack">
-		          <div className="preset-name">{modeName}</div>
-		          <div className="panel-shared controls">
-		            <button onClick={handleNormalReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
-		            <button onClick={toggleProPanel} className="btn-primary" style={{ marginBottom: '16px' }}>🛠 Proモードを起動</button>
-		          <label>パターンモード</label>
-		          <select value={params.mode} onChange={e => handleParamChange('mode', e.target.value)} disabled={showProPanel}>
-		            <option value="moire">モアレ円回転</option><option value="spiral">螺旋渦巻き</option><option value="grid">グリッド干渉</option><option value="random">ランダムポイント接続</option><option value="flower">花びら放射</option><option value="wave">波状干渉</option><option value="shader">🌌 シェーダー (GLSL)</option>
-		          </select>
+			          <div className="preset-name">{modeName}</div>
+			          <div className="panel-shared controls">
+			            <button onClick={handleNormalReset} className="btn-danger" style={{ marginBottom: '8px' }}>🔄 設定をリセット</button>
+			            <button onClick={toggleProPanel} className="btn-primary" style={{ marginBottom: '16px' }}>🛠 Proモードを起動</button>
+                  <div className="section-divider">
+                    <label className="section-title">⚡ 省エネ</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input type="checkbox" checked={energySaver} onChange={e => setEnergySaver(e.target.checked)} />
+                      ぼかし（ガラス）をオフ
+                    </label>
+                    <label>FPS上限</label>
+                    <select value={fpsLimit} onChange={e => setFpsLimit(parseInt(e.target.value, 10))}>
+                      <option value={60}>60</option>
+                      <option value={30}>30</option>
+                      <option value={15}>15</option>
+                    </select>
+                  </div>
+			          <label>パターンモード</label>
+			          <select value={params.mode} onChange={e => handleParamChange('mode', e.target.value)} disabled={showProPanel}>
+			            <option value="moire">モアレ円回転</option><option value="spiral">螺旋渦巻き</option><option value="grid">グリッド干渉</option><option value="random">ランダムポイント接続</option><option value="flower">花びら放射</option><option value="wave">波状干渉</option><option value="shader">🌌 シェーダー (GLSL)</option>
+			          </select>
           <label>カラーパレット (シェーダー以外)</label>
           <select value={params.palette} onChange={e => handleParamChange('palette', e.target.value)} disabled={params.mode === 'shader' || showProPanel}>
             <option value="rainbow">🌈 Rainbow</option><option value="cyberpunk">🤖 Cyberpunk</option><option value="monochrome">🌑 Monochrome</option><option value="pastel">🌸 Pastel</option><option value="warm">🔥 Warm</option><option value="cool">💧 Cool</option><option value="golden">👑 Golden</option>
