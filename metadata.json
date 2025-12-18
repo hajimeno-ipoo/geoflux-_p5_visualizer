@@ -1,0 +1,5 @@
+{
+  "name": "GeoFlux _P5_Visualizer ",
+  "description": "A generative art application creating moire and geometric patterns with p5.js. Features customizable presets, high-resolution export, and one-liner code generation.",
+  "requestFramePermissions": []
+}

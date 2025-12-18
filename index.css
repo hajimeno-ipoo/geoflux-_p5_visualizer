@@ -1,0 +1,212 @@
+body { margin:0; font-family:sans-serif; background:#111; color:#eee; height:100vh; overflow:hidden; }
+#root { display:flex; flex-direction:column; height:100vh; }
+
+h1 { text-align:center; margin:10px; font-size:1.4em; flex-shrink: 0; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+
+/* Layout */
+.container { flex:1; display:flex; flex-wrap:nowrap; overflow:hidden; position: relative; }
+
+/* Left Side Pro Panel (Moved to Right Side in UI) */
+.pro-panel {
+  width: 320px;
+  background: #181818;
+  border-left: 1px solid #444; /* Changed from border-right for right side placement */
+  padding: 20px;
+  padding-bottom: 60px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: -5px 0 15px rgba(0,0,0,0.5); /* Shadow adjusted for right side */
+  z-index: 10;
+  animation: slideIn 0.3s ease-out;
+}
+@keyframes slideIn {
+  from { width: 0; opacity: 0; }
+  to { width: 320px; opacity: 1; }
+}
+
+.pro-title {
+  color: #d2007d;
+  margin-top: 0;
+  font-size: 1.2em;
+  border-bottom: 1px solid #d2007d;
+  padding-bottom: 10px;
+}
+
+.canvas-container { flex:1; min-width:200px; background:#000; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+/* Force canvas to fill container but allow scaling via transform */
+.canvas-container canvas { 
+  display: block; 
+  outline: none; 
+  object-fit: contain; 
+  width: 100% !important; 
+  height: 100% !important;
+  /* transform removed */
+}
+
+/* Zoom Controls */
+.zoom-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px 5px;
+    border-radius: 20px;
+    z-index: 50;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.zoom-value {
+    color: #fff;
+    font-size: 0.8em;
+    font-family: monospace;
+    margin-bottom: 5px;
+    text-shadow: 0 0 2px #000;
+}
+
+.zoom-slider-wrapper {
+    width: 30px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vertical-slider {
+    width: 100px; /* Length when horizontal */
+    height: 20px; /* Thickness */
+    transform: rotate(-90deg);
+    cursor: pointer;
+    accent-color: #00d2ff;
+}
+
+.controls { 
+  width:380px; 
+  padding:20px; 
+  padding-bottom: 60px;
+  background:#222; 
+  overflow-y:auto; 
+  flex-shrink: 0; 
+  border-left: 1px solid #444; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  height: 100%;
+  box-sizing: border-box;
+  position: relative; /* For locked overlay */
+}
+
+.controls::-webkit-scrollbar, .pro-panel::-webkit-scrollbar { width: 8px; }
+.controls::-webkit-scrollbar-track, .pro-panel::-webkit-scrollbar-track { background: #1a1a1a; }
+.controls::-webkit-scrollbar-thumb, .pro-panel::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+.controls::-webkit-scrollbar-thumb:hover, .pro-panel::-webkit-scrollbar-thumb:hover { background: #555; }
+
+label { display:block; margin:5px 0 2px; font-size: 0.85em; color: #aaa; }
+select, button { width:100%; padding:10px; margin-bottom:5px; box-sizing: border-box; background: #333; color: #fff; border: 1px solid #555; border-radius: 6px; font-size: 0.95em; }
+button { cursor: pointer; transition: all 0.2s; font-weight: bold; }
+button:hover { background: #444; border-color: #777; }
+button:active { background: #555; transform: translateY(1px); }
+button:disabled { background: #222; color: #555; border-color: #333; cursor: not-allowed; transform: none; }
+
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.checkbox-group label { display: flex; align-items: center; margin: 0; cursor: pointer; color: #ddd; font-size: 0.9em; }
+.checkbox-group input[type="checkbox"] { margin-right: 5px; accent-color: #00d2ff; width: auto; }
+
+textarea { 
+  width: 100%; 
+  height: 120px; 
+  background: #111; 
+  color: #0f0; 
+  font-family: 'Courier New', monospace; 
+  margin-top: 10px; 
+  border: 1px solid #444; 
+  padding: 8px; 
+  font-size: 0.85em; 
+  border-radius: 4px; 
+  resize: vertical; 
+  box-sizing: border-box; 
+  flex-shrink: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.preset-name { font-weight:bold; color:#ff0; margin:10px 0; text-align:center; min-height: 1.2em; text-shadow: 0 0 5px rgba(255, 255, 0, 0.5); }
+
+.slider-group { display: flex; align-items: center; margin-bottom: 8px; }
+.slider-group input[type=range] { flex-grow: 1; margin-right: 10px; cursor: pointer; accent-color: #00d2ff; }
+.slider-group input[type=number] { width: 70px; padding: 4px; text-align: right; background: #2a2a2a; color: #fff; border: 1px solid #555; border-radius: 4px; font-family: monospace; }
+
+.section-divider { border-top:1px solid #444; margin-top:10px; padding-top:10px; margin-bottom:10px; }
+.section-title { color:#00d2ff; font-weight:bold; display:block; margin-bottom:5px;}
+.section-title.pink { color:#ff00ff; }
+
+/* Locked Overlay */
+.locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #d2007d;
+  backdrop-filter: blur(2px);
+}
+.locked-overlay h3 { margin: 0 0 10px 0; font-size: 1.5em; text-shadow: 0 0 10px rgba(210, 0, 125, 0.5); }
+.locked-overlay p { color: #aaa; margin: 0; }
+
+.toast {
+  visibility: hidden;
+  min-width: 250px;
+  margin-left: -125px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  padding: 16px;
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: 30px;
+  font-size: 17px;
+  border: 1px solid #00d2ff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.5s, bottom 0.5s;
+}
+.toast.show {
+  visibility: visible;
+  opacity: 1;
+  bottom: 30px;
+}
+
+@media (max-width: 900px) {
+  .container { flex-direction: column; }
+  .pro-panel { width: 100%; height: auto; border-left: none; border-bottom: 1px solid #444; animation: none; }
+  .controls { width: 100%; height: auto; border-left: none; border-top: 1px solid #444; padding: 15px; padding-bottom: 40px; }
+  .canvas-container { height: 40vh; min-height: 300px; }
+  h1 { font-size: 1.1em; margin: 8px; }
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  border: none;
+  background: #444;
+  padding: 5px 10px;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover { background: #555; }
