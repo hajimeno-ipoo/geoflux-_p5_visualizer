@@ -136,6 +136,22 @@ test('全画面退出後にサイドパネルが押し出されないCSSがあ�
   assert.match(css, /\.panel-shared\s*\{[\s\S]*?box-sizing:\s*border-box\s*;/);
 });
 
+test('ライセンス表示のボタンとモーダルがある', async () => {
+  const appTsx = await readFile(path.join(projectRoot, 'App.tsx'), 'utf8');
+  assert.ok(appTsx.includes('📄 ライセンス'), 'ライセンスボタンが見つからないよ');
+  assert.ok(appTsx.includes('license-overlay'), 'ライセンスのオーバーレイが見つからないよ');
+  assert.ok(appTsx.includes('license-dialog'), 'ライセンスのダイアログが見つからないよ');
+  assert.ok(appTsx.includes('Personal Use Only License'), 'ライセンス本文が見つからないよ');
+  assert.ok(!appTsx.includes('[あなたの名前]'), 'ライセンス表示に名前が入ってるよ');
+});
+
+test('ライセンスモーダルのCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.license-overlay\s*\{[\s\S]*?position:\s*absolute\s*;/);
+  assert.match(css, /\.license-dialog\s*\{[\s\S]*?border-radius:\s*var\(--radius-outer\);/);
+  assert.match(css, /\.license-text\s*\{[\s\S]*?white-space:\s*pre-wrap;/);
+});
+
 test('トースト表示がレイアウトを押さないCSSがある', async () => {
   const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
   assert.match(css, /\.toast\s*\{[\s\S]*?position:\s*absolute\s*;/);

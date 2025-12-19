@@ -5,6 +5,27 @@ import { createSketch, ensureP5SoundAddon } from './sketch';
 import { AppParams, defaultParams, presets, Preset } from './types';
 import './index.css';
 
+const LICENSE_TEXT = `Personal Use Only License (No Redistribution)
+
+許可されること:
+- 個人・非商用の目的で、本ソフトを閲覧・実行してよい。
+- 本ソフトの改造は、あなたのローカル環境内に限り許可する。
+
+禁止されること:
+- 本ソフトまたは改造版の再配布・公開・共有
+  （例: 配布/アップロード/ホスティング/SaaS化/パッケージ化/バイナリ配布）
+- GitHub上で改造コミットを公開すること
+  （例: PR、フォークへの改造プッシュ等）
+- 商用利用（有料提供、広告収益、企業・団体での利用を含む）
+
+その他:
+- GitHubでのフォークは許可するが、フォーク内で改造した内容を公開してはならない。
+- クレジット表示は不要。
+
+免責:
+本ソフトは「現状のまま」提供され、無保証です。作者は損害に責任を負いません。
+`;
+
 interface AudioControlsProps {
   params: AppParams;
   isPro: boolean;
@@ -189,6 +210,7 @@ const App: React.FC = () => {
   const [energySaver, setEnergySaver] = useState(false);
   const [fpsLimit, setFpsLimit] = useState<number>(60);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
+  const [showLicense, setShowLicense] = useState(false);
 
   const paramsRef = useRef<AppParams>(defaultParams);
   const audioFileRef = useRef<File | null>(null);
@@ -196,6 +218,8 @@ const App: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<number>(1.0);
   const savedNormalParams = useRef<AppParams | null>(null);
+  const openLicense = () => setShowLicense(true);
+  const closeLicense = () => setShowLicense(false);
 
   useEffect(() => {
     paramsRef.current = params;
@@ -876,6 +900,7 @@ ${ppPost}
             </div>
             <button onClick={() => copyCode('proCodeOutput')} className="btn-primary">📋 スクリプトをコピー</button>
             <textarea id="proCodeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
+            <button onClick={openLicense}>📄 ライセンス</button>
           </div>
 
 				        </div>
@@ -931,10 +956,22 @@ ${ppPost}
             </div>
             <button onClick={() => copyCode('codeOutput')} className="btn-primary">📋 スクリプトをコピー</button>
             <textarea id="codeOutput" className="textarea-code" readOnly value={generateOneLiner()} />
+            <button onClick={openLicense}>📄 ライセンス</button>
           </div>
 		          </div>
 		        </div>
 		      )}
+      {showLicense && (
+        <div className="license-overlay" role="dialog" aria-modal="true" aria-label="ライセンス" onClick={closeLicense}>
+          <div className="license-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="license-header">
+              <div className="license-title">📄 ライセンス</div>
+              <button onClick={closeLicense} aria-label="閉じる">✕</button>
+            </div>
+            <pre className="license-text">{LICENSE_TEXT}</pre>
+          </div>
+        </div>
+      )}
       <div className={`toast ${showToast ? 'show' : ''}`}>{toastMsg}</div>
     </div>
   );
