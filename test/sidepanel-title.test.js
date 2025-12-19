@@ -135,3 +135,10 @@ test('全画面退出後にサイドパネルが押し出されないCSSがあ�
   assert.match(css, /\.canvas-container\s*\{[\s\S]*?overflow:\s*hidden\s*;/);
   assert.match(css, /\.panel-shared\s*\{[\s\S]*?box-sizing:\s*border-box\s*;/);
 });
+
+test('トースト表示がレイアウトを押さないCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.toast\s*\{[\s\S]*?position:\s*absolute\s*;/);
+  assert.match(css, /\.toast\s*\{[\s\S]*?right:\s*12px\s*;/);
+  assert.match(css, /\.toast\.show\s*\{[\s\S]*?opacity:\s*1\s*;/);
+});

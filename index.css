@@ -378,3 +378,30 @@ select {
   line-height: 1.5;
   resize: none;
 }
+
+/* Toast (レイアウトを押さないように overlay 表示) */
+.toast {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  max-width: min(420px, calc(100% - 24px));
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(28, 28, 30, 0.75);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  font-size: 0.9em;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  pointer-events: none;
+  z-index: 999;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
