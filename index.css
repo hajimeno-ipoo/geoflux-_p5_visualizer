@@ -52,6 +52,7 @@ h1 {
 /* Shared Panel Style - Mac-like sidebar */
 .panel-shared {
   width: 340px;
+  box-sizing: border-box;
   background-color: var(--panel-bg);
   backdrop-filter: var(--glass-effect);
   -webkit-backdrop-filter: var(--glass-effect);
@@ -105,11 +106,13 @@ h1 {
 
 .canvas-container {
   flex: 1;
+  min-width: 0;
   background: #050816;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* UI Elements Styling */

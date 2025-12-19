@@ -128,3 +128,10 @@ test('プレビュー停止で時間をリセットできる', async () => {
   assert.ok(sketchTs.includes('(p as any).resetAnimation'), 'sketch.ts に resetAnimation が無いよ');
   assert.ok(sketchTs.includes('if (p.isLooping()) f += currentSpeed;'), '停止中の redraw で時間が進まないようになってないよ');
 });
+
+test('全画面退出後にサイドパネルが押し出されないCSSがある', async () => {
+  const css = await readFile(path.join(projectRoot, 'index.css'), 'utf8');
+  assert.match(css, /\.canvas-container\s*\{[\s\S]*?min-width:\s*0\s*;/);
+  assert.match(css, /\.canvas-container\s*\{[\s\S]*?overflow:\s*hidden\s*;/);
+  assert.match(css, /\.panel-shared\s*\{[\s\S]*?box-sizing:\s*border-box\s*;/);
+});

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import p5 from 'p5';
-import { createSketch } from './sketch';
+import { createSketch, ensureP5SoundAddon } from './sketch';
 import { AppParams, defaultParams, presets, Preset } from './types';
 import './index.css';
 
@@ -207,29 +207,37 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const sketch = createSketch(paramsRef, audioFileRef, zoomRef);
-    const P5Ctor = ((window as any).p5 ?? p5) as typeof p5;
-    const p5Obj = new P5Ctor(sketch, containerRef.current);
-    p5Instance.current = p5Obj;
-    p5Obj.frameRate(fpsLimit);
-    (p5Obj as any).onAudioPlayStateChange = (playing: boolean) => { setIsAudioPlaying(playing); };
+    let cancelled = false;
+    let p5Obj: p5 | null = null;
+    let fpsInterval: number | null = null;
 
-    // FPSの更新ループを追加
-    const fpsInterval = setInterval(() => {
-      if (p5Obj) {
-        setFps(Math.round(p5Obj.frameRate()));
-      }
-    }, 500);
+    (async () => {
+      await ensureP5SoundAddon();
+      if (cancelled || !containerRef.current) return;
 
-    if (containerRef.current) {
+      const sketch = createSketch(paramsRef, audioFileRef, zoomRef);
+      const P5Ctor = ((window as any).p5 ?? p5) as typeof p5;
+      p5Obj = new P5Ctor(sketch, containerRef.current);
+      p5Instance.current = p5Obj;
+      p5Obj.frameRate(fpsLimit);
+      (p5Obj as any).onAudioPlayStateChange = (playing: boolean) => { setIsAudioPlaying(playing); };
+
+      // FPSの更新ループを追加
+      fpsInterval = window.setInterval(() => {
+        if (p5Obj) setFps(Math.round(p5Obj.frameRate()));
+      }, 500);
+
       const { clientWidth, clientHeight } = containerRef.current;
       (p5Obj as any).customResize?.(clientWidth, clientHeight);
-    }
+    })();
+
     return () => {
+      cancelled = true;
+      if (!p5Obj) return;
       (p5Obj as any).onAudioPlayStateChange = null;
       p5Obj.remove();
       p5Instance.current = null;
-      clearInterval(fpsInterval);
+      if (fpsInterval) clearInterval(fpsInterval);
     };
   }, []);
 
@@ -416,9 +424,32 @@ const App: React.FC = () => {
     if (code) { navigator.clipboard.writeText(code.value).then(() => displayToast('コードをコピーしました！')).catch(() => displayToast('コピーに失敗しました')); }
   };
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.getElementById('canvasContainer')?.requestFullscreen().catch(() => displayToast('全画面表示エラー'));
-    } else { document.exitFullscreen(); }
+    const doc: any = document;
+    const fullscreenEl =
+      document.fullscreenElement ??
+      doc.webkitFullscreenElement ??
+      doc.mozFullScreenElement ??
+      doc.msFullscreenElement;
+
+    if (!fullscreenEl) {
+      const el: any = document.getElementById('canvasContainer');
+      const request =
+        el?.requestFullscreen ??
+        el?.webkitRequestFullscreen ??
+        el?.mozRequestFullScreen ??
+        el?.msRequestFullscreen;
+      if (!request) { displayToast('全画面表示エラー'); return; }
+      Promise.resolve(request.call(el)).catch(() => displayToast('全画面表示エラー'));
+      return;
+    }
+
+    const exit =
+      document.exitFullscreen ??
+      doc.webkitExitFullscreen ??
+      doc.mozCancelFullScreen ??
+      doc.msExitFullscreen;
+    if (!exit) { displayToast('全画面表示エラー'); return; }
+    Promise.resolve(exit.call(document)).catch(() => displayToast('全画面表示エラー'));
   };
 
   const playPreview = () => {

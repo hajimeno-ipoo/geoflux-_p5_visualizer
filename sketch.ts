@@ -1,7 +1,27 @@
 import React from 'react';
 import p5 from 'p5';
-import 'p5/lib/addons/p5.sound';
 import { AppParams } from './types';
+
+let p5SoundLoadPromise: Promise<void> | null = null;
+
+export const ensureP5SoundAddon = async () => {
+  if (p5SoundLoadPromise) return p5SoundLoadPromise;
+  p5SoundLoadPromise = (async () => {
+    try {
+      const w: any = globalThis as any;
+      const AudioContextCtor = w.AudioContext ?? w.webkitAudioContext;
+      const hasAudioWorklet = !!(AudioContextCtor?.prototype && typeof AudioContextCtor.prototype.audioWorklet !== 'undefined');
+      const hasWorkletNode = typeof w.AudioWorkletNode === 'function';
+
+      // Chrome などで AudioContext.audioWorklet が無いのに AudioWorkletNode だけ居ると、
+      // p5.sound が init で落ちるので、p5.sound 側の polyfill を使わせる
+      if (!hasAudioWorklet && hasWorkletNode) w.AudioWorkletNode = undefined;
+    } catch { }
+
+    await import('p5/lib/addons/p5.sound');
+  })();
+  return p5SoundLoadPromise;
+};
 
 const TWO_PI = Math.PI * 2;
 const LUT_SIZE = 1440; // 0.25 degree resolution
