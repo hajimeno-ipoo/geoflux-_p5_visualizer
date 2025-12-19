@@ -103,6 +103,8 @@ export const createSketch = (
 	    const PREVIEW_BG = '#050816';
 	    const PREVIEW_BG_RGB = '5, 8, 22';
 	    let f = 0;
+	    let frameSeed = 0;
+	    let frameCounter = 0;
 	    let soundFile: any = null;
 	    let fft: any = null;
 	    let amp: any = null;
@@ -111,12 +113,16 @@ export const createSketch = (
 	    let audioReady = false;
 	    let audioLoading = false;
 	    let audioBass = 0;
-	    let audioMid = 0;
-	    let audioTreble = 0;
-	    let audioLevel = 0;
+    let audioMid = 0;
+    let audioTreble = 0;
+    let audioLevel = 0;
     let pg: p5.Graphics;
     let pgShader: p5.Graphics;
     let theShader: p5.Shader;
+    let exportPg: p5.Graphics | null = null;
+    let exportPgShader: p5.Graphics | null = null;
+    let exportShader: p5.Shader | null = null;
+    let exportCanvas: p5.Graphics | null = null;
 
     // 描画予算管理
     let linesDrawn = 0;
@@ -319,10 +325,55 @@ export const createSketch = (
 	    };
 	    (p as any).setAudioVolume = (vol: number) => { try { soundFile?.setVolume?.(vol); } catch { } };
 	    (p as any).exportHighRes = () => {
-	      const currentDensity = p.pixelDensity();
-	      p.pixelDensity(2);
-	      p.saveCanvas('pattern-HD-' + Date.now(), 'png');
-      p.pixelDensity(currentDensity);
+	      if (!pg) return;
+	      const scale = 2;
+	      const w = Math.max(1, Math.round(pg.width * scale));
+	      const h = Math.max(1, Math.round(pg.height * scale));
+
+	      if (!exportPg || exportPg.width !== w || exportPg.height !== h) {
+	        exportPg = p.createGraphics(w, h);
+	        exportPg.pixelDensity(1);
+	        exportPg.colorMode(p.HSB, 360, 100, 100, 100);
+	      }
+	      if (!exportPgShader || exportPgShader.width !== w || exportPgShader.height !== h) {
+	        exportPgShader = p.createGraphics(w, h, p.WEBGL);
+	        exportPgShader.pixelDensity(1);
+	        exportShader = exportPgShader.createShader(vertSrc, fragSrc);
+	      }
+	      if (!exportCanvas || exportCanvas.width !== w || exportCanvas.height !== h) {
+	        exportCanvas = p.createGraphics(w, h);
+	        exportCanvas.pixelDensity(1);
+	      }
+	      const expPg = exportPg;
+	      const expPgShader = exportPgShader;
+	      const expCanvas = exportCanvas;
+	      if (!expPg || !expPgShader || !expCanvas) return;
+
+	      if (!exportShader) exportShader = expPgShader.createShader(vertSrc, fragSrc);
+	      const expShader = exportShader;
+	      if (!expShader) return;
+
+	      // 描画先を一時的に差し替えて、同じロジックで高解像度に描き直す
+	      const prevPg = pg;
+	      const prevPgShader = pgShader;
+	      const prevShader = theShader;
+	      pg = expPg;
+	      pgShader = expPgShader;
+	      theShader = expShader;
+	      try {
+	        p.randomSeed(frameSeed);
+	        expPg.background(PREVIEW_BG);
+	        expPgShader.clear();
+	        expPgShader.background(PREVIEW_BG);
+	        expCanvas.background(PREVIEW_BG);
+	        renderPattern(paramsRef.current, zoomRef.current);
+	        drawPostProcessTo(expCanvas, expPg, paramsRef.current);
+	        p.saveCanvas(expCanvas.canvas, 'pattern-HD-' + Date.now(), 'png');
+	      } finally {
+	        pg = prevPg;
+	        pgShader = prevPgShader;
+	        theShader = prevShader;
+	      }
     };
 
     (p as any).clearCanvas = () => {
@@ -366,6 +417,8 @@ export const createSketch = (
       linesDrawn = 0;
 
       try {
+        frameSeed = frameCounter;
+        p.randomSeed(frameSeed);
 	        {
 	          const isCustomMode = params.mode === 'custom';
 	          const sens = isCustomMode ? params.customAudioSens : params.audioSens;
@@ -394,87 +447,13 @@ export const createSketch = (
 
         const isCustom = params.mode === 'custom';
         const currentSpeed = isCustom ? params.customSpeed : params.speed;
-        const currentTrail = isCustom ? params.customTrailAlpha : params.trailAlpha;
-        const currentPalette = isCustom ? params.customPalette : params.palette;
-
-        const isMoireSpiral = params.mode === 'moire' || params.mode === 'spiral';
-        const useGPU = (params.mode === 'shader') || (params.gpuAccelerated && isMoireSpiral);
-
-        if (useGPU && pgShader && theShader) {
-          pgShader.shader(theShader);
-          theShader.setUniform('u_resolution', [p.width, p.height]);
-          theShader.setUniform('u_time', f * (params.mode === 'shader' ? params.shaderSpeed : params.speed * 100));
-          theShader.setUniform('u_scale', (params.mode === 'shader' ? params.shaderScale : 1.0) / zoom);
-          theShader.setUniform('u_audio', audioLevel);
-          theShader.setUniform('u_bass', audioBass);
-          theShader.setUniform('u_mid', audioMid);
-          theShader.setUniform('u_treble', audioTreble);
-
-          let shaderModeVal = 0;
-          let pA = 0, pB = 0, pC = 0;
-          if (params.mode === 'moire') {
-            shaderModeVal = 1;
-            pA = params.circles;
-            pB = params.points;
-            pC = params.dist;
-          } else if (params.mode === 'spiral') {
-            shaderModeVal = 2;
-            pA = params.spiralStrength;
-            pB = params.layers;
-          }
-          theShader.setUniform('u_mode', shaderModeVal);
-          theShader.setUniform('u_paramA', pA);
-          theShader.setUniform('u_paramB', pB);
-          theShader.setUniform('u_paramC', pC);
-
-          const getPaletteCoeffs = (pal: string) => {
-            switch (pal) {
-              case 'cyberpunk': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.6, 0.7, 0.8] };
-              case 'monochrome': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.0, 0.0] };
-              case 'pastel': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.3, 0.2, 0.2] };
-              case 'warm': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.1, 0.2] };
-              case 'cool': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.5, 0.6, 0.7] };
-              case 'golden': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.1, 0.2, 0.3] };
-              default: return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.33, 0.67] };
-            }
-          };
-          const coeffs = getPaletteCoeffs(currentPalette);
-          theShader.setUniform('u_palette_a', coeffs.a);
-          theShader.setUniform('u_palette_b', coeffs.b);
-          theShader.setUniform('u_palette_c', coeffs.c);
-          theShader.setUniform('u_palette_d', coeffs.d);
-
-          pgShader.resetMatrix();
-          // @ts-ignore
-          pgShader.beginShape(p.TRIANGLE_STRIP);
-          pgShader.vertex(-1, -1, 0, 0, 1); pgShader.vertex(1, -1, 0, 1, 1);
-          pgShader.vertex(-1, 1, 0, 0, 0); pgShader.vertex(1, 1, 0, 1, 0);
-          pgShader.endShape();
-          if (pg) {
-            pg.resetMatrix(); pg.imageMode(p.CORNER); pg.image(pgShader, 0, 0, p.width, p.height);
-          }
-        } else if (pg) {
-          pg.noStroke();
-          pg.fill(`rgba(${PREVIEW_BG_RGB}, ${currentTrail / 100})`);
-          pg.rect(0, 0, p.width, p.height);
-          pg.push();
-          pg.translate(p.width / 2, p.height / 2);
-          const minDim = p.min(p.width, p.height);
-          let baseScale = (params.mode === 'grid' || params.mode === 'wave') ? 1.0 : 0.85;
-          pg.scale(baseScale * zoom);
-          if (params.mode === 'moire') drawMoire(p, params, minDim, currentPalette);
-          else if (params.mode === 'spiral') drawSpiral(p, params, minDim, currentPalette);
-          else if (params.mode === 'grid') drawGrid(p, params, minDim, currentPalette);
-          else if (params.mode === 'random') drawRandom(p, params, minDim, currentPalette);
-          else if (params.mode === 'flower') drawFlower(p, params, minDim, currentPalette);
-          else if (params.mode === 'wave') drawWave(p, params, minDim, currentPalette);
-          else if (params.mode === 'custom') drawCustom(p, params, minDim, currentPalette);
-          pg.pop();
-        }
-        drawPostProcess(p, params);
+        renderPattern(params, zoom);
+        drawPostProcessTo(p, pg, params);
         if (p.isLooping()) f += currentSpeed;
       } catch (e) {
         console.error("Error in p5 draw loop:", e);
+      } finally {
+        frameCounter++;
       }
     };
 
@@ -713,14 +692,16 @@ export const createSketch = (
 
     function drawGrid(p: p5, params: AppParams, minDim: number, palette: string) {
       let density = Math.max(2, params.gridDensity / (1 + audioBass * 0.3));
-      let step = p.width / density;
+      const cw = pg?.width ?? p.width;
+      const ch = pg?.height ?? p.height;
+      let step = cw / density;
       pg.strokeWeight(1.5 + audioTreble * 4.0);
 
       const drawFullGrid = () => {
         pg.beginShape(p.LINES);
-        for (let i = -p.width; i <= p.width; i += step) {
-          pg.vertex(i, -p.height); pg.vertex(i, p.height);
-          pg.vertex(-p.width, i); pg.vertex(p.width, i);
+        for (let i = -cw; i <= cw; i += step) {
+          pg.vertex(i, -ch); pg.vertex(i, ch);
+          pg.vertex(-cw, i); pg.vertex(cw, i);
           linesDrawn += 2;
         }
         pg.endShape();
@@ -806,10 +787,12 @@ export const createSketch = (
         let offset = w * 20;
         pg.beginShape();
         pg.noFill();
-        for (let x = -p.width / 2; x < p.width / 2; x += 8) {
+        const cw = pg?.width ?? p.width;
+        const ch = pg?.height ?? p.height;
+        for (let x = -cw / 2; x < cw / 2; x += 8) {
           let y = fastSin(x * 0.02 + f + offset) * params.amp * (1 + audioMid * 0.4) + fastCos(x * 0.01) * 30;
-          y = p.constrain(y, -p.height / 2 + 10, p.height / 2 - 10);
-          if (x === -p.width / 2) setStrokeColor(p, f * params.hueSpeed + w * 20, palette, params);
+          y = p.constrain(y, -ch / 2 + 10, ch / 2 - 10);
+          if (x === -cw / 2) setStrokeColor(p, f * params.hueSpeed + w * 20, palette, params);
           pg.vertex(x, y);
           linesDrawn++;
         }
@@ -817,8 +800,10 @@ export const createSketch = (
       }
     }
 
-    function drawPostProcess(p: p5, params: AppParams) {
-      p.background(PREVIEW_BG);
+    function drawPostProcessTo(target: any, source: p5.Graphics, params: AppParams) {
+      const w = target?.width ?? p.width;
+      const h = target?.height ?? p.height;
+      target.background(PREVIEW_BG);
       const isCustom = params.mode === 'custom';
       const isPpMirror = isCustom ? params.customPpMirror : params.ppMirror;
       const isPpInvert = isCustom ? params.customPpInvert : params.ppInvert;
@@ -827,18 +812,104 @@ export const createSketch = (
       let ox = 0, oy = 0;
       if (isPpGlitch && (p.random() < 0.1 || (audioTreble > 0.8 && p.random() < 0.5))) { ox = p.random(-20, 20); oy = p.random(-5, 5); }
       if (isPpMirror) {
-        p.image(pg, ox, oy, p.width / 2, p.height / 2, 0, 0, p.width, p.height);
-        p.push(); p.translate(p.width, 0); p.scale(-1, 1); p.image(pg, 0, 0, p.width / 2, p.height / 2, 0, 0, p.width, p.height); p.pop();
-        p.push(); p.translate(0, p.height); p.scale(1, -1); p.image(pg, 0, 0, p.width / 2, p.height / 2, 0, 0, p.width, p.height); p.pop();
-        p.push(); p.translate(p.width, p.height); p.scale(-1, -1); p.image(pg, 0, 0, p.width / 2, p.height / 2, 0, 0, p.width, p.height); p.pop();
-      } else if (pg) {
-        p.image(pg, ox, oy, p.width, p.height);
+        target.image(source, ox, oy, w / 2, h / 2, 0, 0, w, h);
+        target.push(); target.translate(w, 0); target.scale(-1, 1); target.image(source, 0, 0, w / 2, h / 2, 0, 0, w, h); target.pop();
+        target.push(); target.translate(0, h); target.scale(1, -1); target.image(source, 0, 0, w / 2, h / 2, 0, 0, w, h); target.pop();
+        target.push(); target.translate(w, h); target.scale(-1, -1); target.image(source, 0, 0, w / 2, h / 2, 0, 0, w, h); target.pop();
+      } else if (source) {
+        target.image(source, ox, oy, w, h);
       }
       if (isPpGlitch && (p.random() < 0.2 || audioTreble > 0.7)) {
-        let y = p.random(p.height), h = p.random(5, 50) * (1 + audioTreble), shift = p.random(-50, 50) * (1 + audioTreble);
-        p.image(p.get(0, y, p.width, h), shift, y);
+        let y = p.random(h), bandH = p.random(5, 50) * (1 + audioTreble), shift = p.random(-50, 50) * (1 + audioTreble);
+        target.image(target.get(0, y, w, bandH), shift, y);
       }
-      if (isPpInvert) p.filter(p.INVERT);
+      if (isPpInvert) target.filter(p.INVERT);
+    }
+
+    function renderPattern(params: AppParams, zoom: number) {
+      const isCustom = params.mode === 'custom';
+      const currentTrail = isCustom ? params.customTrailAlpha : params.trailAlpha;
+      const currentPalette = isCustom ? params.customPalette : params.palette;
+
+      const isMoireSpiral = params.mode === 'moire' || params.mode === 'spiral';
+      const useGPU = (params.mode === 'shader') || (params.gpuAccelerated && isMoireSpiral);
+
+      const w = pg?.width ?? p.width;
+      const h = pg?.height ?? p.height;
+      const minDim = p.min(w, h);
+
+      if (useGPU && pgShader && theShader) {
+        pgShader.shader(theShader);
+        theShader.setUniform('u_resolution', [w, h]);
+        theShader.setUniform('u_time', f * (params.mode === 'shader' ? params.shaderSpeed : params.speed * 100));
+        theShader.setUniform('u_scale', (params.mode === 'shader' ? params.shaderScale : 1.0) / zoom);
+        theShader.setUniform('u_audio', audioLevel);
+        theShader.setUniform('u_bass', audioBass);
+        theShader.setUniform('u_mid', audioMid);
+        theShader.setUniform('u_treble', audioTreble);
+
+        let shaderModeVal = 0;
+        let pA = 0, pB = 0, pC = 0;
+        if (params.mode === 'moire') {
+          shaderModeVal = 1;
+          pA = params.circles;
+          pB = params.points;
+          pC = params.dist;
+        } else if (params.mode === 'spiral') {
+          shaderModeVal = 2;
+          pA = params.spiralStrength;
+          pB = params.layers;
+        }
+        theShader.setUniform('u_mode', shaderModeVal);
+        theShader.setUniform('u_paramA', pA);
+        theShader.setUniform('u_paramB', pB);
+        theShader.setUniform('u_paramC', pC);
+
+        const getPaletteCoeffs = (pal: string) => {
+          switch (pal) {
+            case 'cyberpunk': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.6, 0.7, 0.8] };
+            case 'monochrome': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.0, 0.0] };
+            case 'pastel': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.3, 0.2, 0.2] };
+            case 'warm': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.1, 0.2] };
+            case 'cool': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.5, 0.6, 0.7] };
+            case 'golden': return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.1, 0.2, 0.3] };
+            default: return { a: [0.5, 0.5, 0.5], b: [0.5, 0.5, 0.5], c: [1.0, 1.0, 1.0], d: [0.0, 0.33, 0.67] };
+          }
+        };
+        const coeffs = getPaletteCoeffs(currentPalette);
+        theShader.setUniform('u_palette_a', coeffs.a);
+        theShader.setUniform('u_palette_b', coeffs.b);
+        theShader.setUniform('u_palette_c', coeffs.c);
+        theShader.setUniform('u_palette_d', coeffs.d);
+
+        pgShader.resetMatrix();
+        // @ts-ignore
+        pgShader.beginShape(p.TRIANGLE_STRIP);
+        pgShader.vertex(-1, -1, 0, 0, 1); pgShader.vertex(1, -1, 0, 1, 1);
+        pgShader.vertex(-1, 1, 0, 0, 0); pgShader.vertex(1, 1, 0, 1, 0);
+        pgShader.endShape();
+        if (pg) {
+          pg.resetMatrix(); pg.imageMode(p.CORNER); pg.image(pgShader, 0, 0, w, h);
+        }
+        return;
+      }
+
+      if (!pg) return;
+      pg.noStroke();
+      pg.fill(`rgba(${PREVIEW_BG_RGB}, ${currentTrail / 100})`);
+      pg.rect(0, 0, w, h);
+      pg.push();
+      pg.translate(w / 2, h / 2);
+      let baseScale = (params.mode === 'grid' || params.mode === 'wave') ? 1.0 : 0.85;
+      pg.scale(baseScale * zoom);
+      if (params.mode === 'moire') drawMoire(p, params, minDim, currentPalette);
+      else if (params.mode === 'spiral') drawSpiral(p, params, minDim, currentPalette);
+      else if (params.mode === 'grid') drawGrid(p, params, minDim, currentPalette);
+      else if (params.mode === 'random') drawRandom(p, params, minDim, currentPalette);
+      else if (params.mode === 'flower') drawFlower(p, params, minDim, currentPalette);
+      else if (params.mode === 'wave') drawWave(p, params, minDim, currentPalette);
+      else if (params.mode === 'custom') drawCustom(p, params, minDim, currentPalette);
+      pg.pop();
     }
   };
 };
