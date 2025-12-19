@@ -360,16 +360,42 @@ export const createSketch = (
 	      pg = expPg;
 	      pgShader = expPgShader;
 	      theShader = expShader;
-	      try {
-	        p.randomSeed(frameSeed);
-	        expPg.background(PREVIEW_BG);
-	        expPgShader.clear();
-	        expPgShader.background(PREVIEW_BG);
-	        expCanvas.background(PREVIEW_BG);
-	        renderPattern(paramsRef.current, zoomRef.current);
-	        drawPostProcessTo(expCanvas, expPg, paramsRef.current);
-	        p.saveCanvas(expCanvas.canvas, 'pattern-HD-' + Date.now(), 'png');
-	      } finally {
+      try {
+        const params = paramsRef.current;
+        const zoom = zoomRef.current;
+        const isCustom = params.mode === 'custom';
+        const currentTrail = isCustom ? params.customTrailAlpha : params.trailAlpha;
+        const isMoireSpiral = params.mode === 'moire' || params.mode === 'spiral';
+        const useGPU = (params.mode === 'shader') || (params.gpuAccelerated && isMoireSpiral);
+        const currentSpeed = isCustom ? params.customSpeed : params.speed;
+
+        // 残像ONのときはプレビューが「積み重ね」で明るくなるので、保存側も軽く積み上げて近づける
+        let passes = 1;
+        if (!useGPU && currentTrail < 80) {
+          const alpha = Math.max(1, currentTrail) / 100;
+          passes = Math.min(40, Math.max(1, Math.ceil(5 / alpha)));
+        }
+
+        const prevF = f;
+        const seedBase = frameSeed - (passes - 1);
+        let tempF = f - currentSpeed * (passes - 1);
+
+        p.randomSeed(seedBase);
+        expPg.background(PREVIEW_BG);
+        expPgShader.clear();
+        expPgShader.background(PREVIEW_BG);
+        expCanvas.background(PREVIEW_BG);
+        for (let i = 0; i < passes; i++) {
+          linesDrawn = 0;
+          f = tempF;
+          p.randomSeed(seedBase + i);
+          renderPattern(params, zoom);
+          tempF += currentSpeed;
+        }
+        f = prevF;
+        drawPostProcessTo(expCanvas, expPg, params);
+        p.saveCanvas(expCanvas.canvas, 'pattern-HD-' + Date.now(), 'png');
+      } finally {
 	        pg = prevPg;
 	        pgShader = prevPgShader;
 	        theShader = prevShader;
