@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local-only / avoid pushing to GitHub
+/docs/fix_black_screen_on_startup/
+/.serena/
+/test/
